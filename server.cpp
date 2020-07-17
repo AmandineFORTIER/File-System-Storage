@@ -11,15 +11,33 @@ void threadClient(sockaddr_in sockaddr,int connection)
 {
     // Send a message to the connection
     std::string response = "Good talking to you\n";
-    send(connection, response.c_str(), response.size(), 0);
+    write(connection, response.c_str(), response.size());
 
     // Read from the connection
     char buffer[100];
-    auto bytesRead = read(connection, buffer, 100);
-    std::cout << "The message was: " << buffer;
+    while (1)
+    {
+        auto bytesRead = read(connection, buffer, 100);
+        std::cout << "The message was: " << buffer;
+    }
     
     close(connection);
 
+}
+
+void command(int sockfd)
+{
+    std::string s;
+    while (std::cin >> s)
+    {
+        if (s == "quit")
+        {
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+        fflush(stdout);
+        fflush(stdin);
+    }
 }
 
 int main()
@@ -35,6 +53,8 @@ int main()
     exit(EXIT_FAILURE);
     }
 
+    std::thread com(command, sockfd);
+    com.detach();
 
     // Listen to port 9999 on any address
     sockaddr_in sockaddr;                     //https://stackoverflow.com/a/21099172  https://www.gta.ufrj.br/ensino/eel878/sockets/sockaddr_inman.html
@@ -43,14 +63,15 @@ int main()
     sockaddr.sin_addr.s_addr = INADDR_ANY;
                                     // network byte order
 
-
-// https://linux.die.net/man/3/setsockopt
+    // https://linux.die.net/man/3/setsockopt
     /* Enable the socket to reuse the address */
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &sockaddr, sizeof(sockaddr)) == -1) {
+    /*
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &sockaddr, sizeof(sockaddr)) == -1) 
+    {
         perror("setsockopt");
         return 1;
     }
-
+    */
     if (bind(sockfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
     {
         std::cout << "Failed to bind to port 9999. errno: " << errno << std::endl;
@@ -71,12 +92,12 @@ int main()
         int connection = accept(sockfd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen); //https://linux.die.net/man/3/accept
         if (connection < 0) 
         {
-            std::cout << "Failed to grab connection. errno: " << errno << std::endl;
+            close(connection);
             exit(EXIT_FAILURE);
         }
 
         std::thread test(threadClient,sockaddr,connection);
         test.detach();
     }
-    close(sockfd);
+    
 }

@@ -27,16 +27,20 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+
    // Read from the connection
     char buffer[100];
     auto bytesRead = read(sockfd, buffer, 100);
     std::cout<<buffer<<std::endl;
 
     char buff[100];
-    read(1, buff, 100);
-
-    // Send a message to the connection
-    send(sockfd, buff, 100, 0);
+    while(read(1, buff, 100) > 0)
+    {
+        write(sockfd, buff, 100);
+        fflush(stdout);
+        fflush(stdin);
+    }
+    close(sockfd);
 
 }
 
