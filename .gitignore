@@ -1,5 +1,7 @@
 #divers
 *.vscode
+server
+client
 
 # Prerequisites
 *.d
