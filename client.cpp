@@ -57,8 +57,8 @@ int main()
     std::cin >> username;
 
     /* ignore signals */
-	signal(SIGINT, SIG_IGN);
-	signal(SIGTERM, SIG_IGN);
+	//signal(SIGINT, SIG_IGN);
+	//signal(SIGTERM, SIG_IGN);
     
 	/* no echo */
 	struct termios term;
