@@ -4,6 +4,8 @@
 #include <iostream> // For cout
 #include <unistd.h> // For read
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 int main()
 {
@@ -37,9 +39,9 @@ int main()
     while(read(1, buff, 100) > 0)
     {
         write(sockfd, buff, 100);
-        fflush(stdout);
-        fflush(stdin);
+        memset(buff, 0, sizeof(buff));
     }
+
     close(sockfd);
 
 }

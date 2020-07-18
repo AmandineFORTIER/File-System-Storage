@@ -15,9 +15,8 @@ void threadClient(sockaddr_in sockaddr,int connection)
 
     // Read from the connection
     char buffer[100];
-    while (1)
+    while (read(connection, buffer, 100)>0)
     {
-        auto bytesRead = read(connection, buffer, 100);
         std::cout << "The message was: " << buffer;
     }
     
@@ -35,8 +34,6 @@ void command(int sockfd)
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-        fflush(stdout);
-        fflush(stdin);
     }
 }
 
