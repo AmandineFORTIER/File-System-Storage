@@ -2,6 +2,7 @@
 *.vscode
 server
 client
+sql
 .DS_Store
 
 # Prerequisites
