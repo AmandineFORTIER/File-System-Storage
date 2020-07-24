@@ -69,7 +69,7 @@ int main()
     
     std::string password;
     std::cout<<"Password: ";
-    std::cin >> password;
+    std::cin >> password;       //PAS BON
     std::cout<<"\nPASS : "<<password<<std::endl;
     
 
@@ -82,11 +82,6 @@ int main()
 	/* reset the term */
 	term.c_lflag |= ECHO;
 	tcsetattr(1, TCSANOW, &term);
-	return 0;
-
-
-
-
 
 
 
