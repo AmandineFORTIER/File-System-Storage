@@ -1,0 +1,16 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/amandine/Desktop/File-System-Storage/client/testBotan.cpp
+botan-2/botan/bcrypt.h
+/home/amandine/Desktop/File-System-Storage/client/botan-2/botan/bcrypt.h
+botan-2/botan/botan.h
+/home/amandine/Desktop/File-System-Storage/client/botan-2/botan/botan.h
+iostream
+-
+
