@@ -11,18 +11,7 @@
 #include <cstring>
 #include <termios.h>
 
-user::user(std::string username, char (&password)[72]):username(username),password(password){};
 
-char * user::get_password()
-{
-    return this->password;
-}
-
-
-std::string user::get_username()
-{
-    return this->username;
-}
 
 std::string ask_username()
 {
@@ -62,24 +51,6 @@ void ask_password(char password[72])
 
 }
 
-void create_user(user usr)
-{
-
-
-
-
-}
-
-void connection(user usr)
-{
-
-
-
-    
-
-    //envoyer username et pass a server et check si ok
-
-}
 
 int connect_to_server()
 {
@@ -140,15 +111,12 @@ int main()
     ask_password(pass);
     user usr(username,pass);
 
-    if (std::strcmp(s.c_str(),"connect")==0)
-    {
-        connection(usr);
-    }
 
-    if (std::strcmp(s.c_str(),"create")==0)
-    {
-        create_user(usr);
-    }
+    //envoyer au server
+
+
+
+
     
 
     std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;

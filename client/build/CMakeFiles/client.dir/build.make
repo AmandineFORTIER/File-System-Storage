@@ -57,27 +57,27 @@ include CMakeFiles/client.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/client.dir/flags.make
 
-CMakeFiles/client.dir/testBotan.cpp.o: CMakeFiles/client.dir/flags.make
-CMakeFiles/client.dir/testBotan.cpp.o: ../testBotan.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/amandine/Desktop/File-System-Storage/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/client.dir/testBotan.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/client.dir/testBotan.cpp.o -c /home/amandine/Desktop/File-System-Storage/client/testBotan.cpp
+CMakeFiles/client.dir/tlsClient.cpp.o: CMakeFiles/client.dir/flags.make
+CMakeFiles/client.dir/tlsClient.cpp.o: ../tlsClient.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/amandine/Desktop/File-System-Storage/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/client.dir/tlsClient.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/client.dir/tlsClient.cpp.o -c /home/amandine/Desktop/File-System-Storage/client/tlsClient.cpp
 
-CMakeFiles/client.dir/testBotan.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/client.dir/testBotan.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/amandine/Desktop/File-System-Storage/client/testBotan.cpp > CMakeFiles/client.dir/testBotan.cpp.i
+CMakeFiles/client.dir/tlsClient.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/client.dir/tlsClient.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/amandine/Desktop/File-System-Storage/client/tlsClient.cpp > CMakeFiles/client.dir/tlsClient.cpp.i
 
-CMakeFiles/client.dir/testBotan.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/client.dir/testBotan.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/amandine/Desktop/File-System-Storage/client/testBotan.cpp -o CMakeFiles/client.dir/testBotan.cpp.s
+CMakeFiles/client.dir/tlsClient.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/client.dir/tlsClient.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/amandine/Desktop/File-System-Storage/client/tlsClient.cpp -o CMakeFiles/client.dir/tlsClient.cpp.s
 
 # Object files for target client
 client_OBJECTS = \
-"CMakeFiles/client.dir/testBotan.cpp.o"
+"CMakeFiles/client.dir/tlsClient.cpp.o"
 
 # External object files for target client
 client_EXTERNAL_OBJECTS =
 
-client: CMakeFiles/client.dir/testBotan.cpp.o
+client: CMakeFiles/client.dir/tlsClient.cpp.o
 client: CMakeFiles/client.dir/build.make
 client: /usr/local/lib/libbotan-2.so
 client: CMakeFiles/client.dir/link.txt

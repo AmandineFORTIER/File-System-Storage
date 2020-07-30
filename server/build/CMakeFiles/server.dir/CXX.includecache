@@ -6,8 +6,10 @@
 
 #IncludeRegexTransform: 
 
-/home/amandine/Desktop/File-System-Storage/client/tlsClient.cpp
+/home/amandine/Desktop/File-System-Storage/server/tlsSever.cpp
 botan-2/botan/tls_client.h
+-
+botan-2/botan/tls_server.h
 -
 botan-2/botan/tls_callbacks.h
 -
@@ -19,6 +21,18 @@ botan-2/botan/auto_rng.h
 -
 botan-2/botan/certstor.h
 -
-botan-2/botan/certstor_system.h
+botan-2/botan/pk_keys.h
+-
+botan-2/botan/pkcs8.h
+-
+botan-2/botan/data_src.h
+-
+botan-2/botan/x509self.h
+-
+botan-2/botan/rsa.h
+-
+iostream
+-
+memory
 -
 

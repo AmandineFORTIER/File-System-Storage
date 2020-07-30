@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/amandine/Desktop/File-System-Storage/client
+CMAKE_SOURCE_DIR = /home/amandine/Desktop/File-System-Storage/server
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/amandine/Desktop/File-System-Storage/client/build
+CMAKE_BINARY_DIR = /home/amandine/Desktop/File-System-Storage/server/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,9 +80,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/amandine/Desktop/File-System-Storage/client/build/CMakeFiles /home/amandine/Desktop/File-System-Storage/client/build/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/amandine/Desktop/File-System-Storage/server/build/CMakeFiles /home/amandine/Desktop/File-System-Storage/server/build/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/amandine/Desktop/File-System-Storage/client/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/amandine/Desktop/File-System-Storage/server/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -111,44 +111,44 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named client
+# Target rules for targets named server
 
 # Build rule for target.
-client: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 client
-.PHONY : client
+server: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 server
+.PHONY : server
 
 # fast build rule for target.
-client/fast:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/build
-.PHONY : client/fast
+server/fast:
+	$(MAKE) -f CMakeFiles/server.dir/build.make CMakeFiles/server.dir/build
+.PHONY : server/fast
 
-tlsClient.o: tlsClient.cpp.o
+tlsSever.o: tlsSever.cpp.o
 
-.PHONY : tlsClient.o
+.PHONY : tlsSever.o
 
 # target to build an object file
-tlsClient.cpp.o:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/tlsClient.cpp.o
-.PHONY : tlsClient.cpp.o
+tlsSever.cpp.o:
+	$(MAKE) -f CMakeFiles/server.dir/build.make CMakeFiles/server.dir/tlsSever.cpp.o
+.PHONY : tlsSever.cpp.o
 
-tlsClient.i: tlsClient.cpp.i
+tlsSever.i: tlsSever.cpp.i
 
-.PHONY : tlsClient.i
+.PHONY : tlsSever.i
 
 # target to preprocess a source file
-tlsClient.cpp.i:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/tlsClient.cpp.i
-.PHONY : tlsClient.cpp.i
+tlsSever.cpp.i:
+	$(MAKE) -f CMakeFiles/server.dir/build.make CMakeFiles/server.dir/tlsSever.cpp.i
+.PHONY : tlsSever.cpp.i
 
-tlsClient.s: tlsClient.cpp.s
+tlsSever.s: tlsSever.cpp.s
 
-.PHONY : tlsClient.s
+.PHONY : tlsSever.s
 
 # target to generate assembly for a file
-tlsClient.cpp.s:
-	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/tlsClient.cpp.s
-.PHONY : tlsClient.cpp.s
+tlsSever.cpp.s:
+	$(MAKE) -f CMakeFiles/server.dir/build.make CMakeFiles/server.dir/tlsSever.cpp.s
+.PHONY : tlsSever.cpp.s
 
 # Help Target
 help:
@@ -158,10 +158,10 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
-	@echo "... client"
-	@echo "... tlsClient.o"
-	@echo "... tlsClient.i"
-	@echo "... tlsClient.s"
+	@echo "... server"
+	@echo "... tlsSever.o"
+	@echo "... tlsSever.i"
+	@echo "... tlsSever.s"
 .PHONY : help
 
 

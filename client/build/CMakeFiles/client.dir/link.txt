@@ -1,1 +1,1 @@
-/usr/bin/c++     CMakeFiles/client.dir/testBotan.cpp.o  -o client  -Wl,-rpath,/usr/local/lib /usr/local/lib/libbotan-2.so 
+/usr/bin/c++     CMakeFiles/client.dir/tlsClient.cpp.o  -o client  -Wl,-rpath,/usr/local/lib /usr/local/lib/libbotan-2.so 
