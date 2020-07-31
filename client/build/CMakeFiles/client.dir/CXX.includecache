@@ -6,6 +6,10 @@
 
 #IncludeRegexTransform: 
 
+/home/amandine/Desktop/File-System-Storage/client/client.h
+iostream
+-
+
 /home/amandine/Desktop/File-System-Storage/client/tlsClient.cpp
 botan-2/botan/tls_client.h
 -
@@ -20,5 +24,25 @@ botan-2/botan/auto_rng.h
 botan-2/botan/certstor.h
 -
 botan-2/botan/certstor_system.h
+-
+client.h
+/home/amandine/Desktop/File-System-Storage/client/client.h
+sys/socket.h
+-
+netinet/in.h
+-
+cstdlib
+-
+unistd.h
+-
+errno.h
+-
+stdio.h
+-
+string.h
+-
+cstring
+-
+termios.h
 -
 

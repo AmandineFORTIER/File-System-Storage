@@ -35,4 +35,22 @@ iostream
 -
 memory
 -
+arpa/inet.h
+-
+sys/socket.h
+-
+netinet/in.h
+-
+cstdlib
+-
+iostream
+-
+unistd.h
+-
+errno.h
+-
+cstring
+-
+thread
+-
 

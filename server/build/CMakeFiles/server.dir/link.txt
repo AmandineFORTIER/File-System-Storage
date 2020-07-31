@@ -1,1 +1,1 @@
-/usr/bin/c++     CMakeFiles/server.dir/tlsSever.cpp.o  -o server  -Wl,-rpath,/usr/local/lib /usr/local/lib/libbotan-2.so 
+/usr/bin/c++     CMakeFiles/server.dir/tlsSever.cpp.o  -o server  -Wl,-rpath,/usr/local/lib /usr/local/lib/libbotan-2.so -lpthread 
