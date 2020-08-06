@@ -20,7 +20,8 @@
 #include <cstring>
 #include <termios.h>
 
-
+#include <string>
+#include <queue>
 
 /**
  * @brief Callbacks invoked by TLS::Channel.
@@ -32,11 +33,25 @@
 class Callbacks : public Botan::TLS::Callbacks
 {
    public:
+        Callbacks(int socket):socket(socket)
+        {
+            
+        }
       void tls_emit_data(const uint8_t data[], size_t size) override
-         {
-         // send data to tls server, e.g., using BSD sockets or boost asio
-         }
-
+        {   
+            if (!this->channel || !this->channel->is_active())
+            {
+                // Handshake in progress
+                this->write_socket(data, size);
+            }
+            else
+            {
+                // Just collect the data and deal with it later in write_socket()
+                this->pending_send.emplace(data, data + size);
+            }
+         
+        }
+        
       void tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size) override
          {
          // process full TLS record received by tls server, e.g.,
@@ -55,6 +70,21 @@ class Callbacks : public Botan::TLS::Callbacks
          // cache the session in the configured session manager
          return false;
          }
+    private:
+        std::unique_ptr<Botan::TLS::Channel> channel;
+        int socket;
+        std::queue<std::vector<uint8_t>> pending_send;
+        ssize_t write_socket(const uint8_t* buffer, size_t size)
+        {
+            ssize_t bytes_written = send(this->socket, buffer, size, MSG_NOSIGNAL);
+                
+            if (bytes_written < 0)
+            {
+                std::cout << "tls_socket::write_socket: Error: " << std::strerror(errno) << std::endl;
+            }
+
+            return bytes_written;
+        }
 };
 
 /**
@@ -67,42 +97,51 @@ class Client_Credentials : public Botan::Credentials_Manager
    {
    public:
       Client_Credentials()
-         {
+        {
          // Here we base trust on the system managed trusted CA list
-         m_stores.push_back(new Botan::System_Certificate_Store);
-         }
+            try
+            {
+                const std::vector<std::string> paths =
+                    {
+                        "/etc/ssl/certs",
+                        "/usr/share/ca-certificates",
+                        "./certs"
+                    };
+                
+                for (auto const& path : paths)
+                {
+                    auto cs = std::make_shared<Botan::Certificate_Store_In_Memory>(path);
+                    this->m_stores.push_back(cs);
+                }
+            }
+            catch (std::exception&)
+            {
+            }
+        }
 
       std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(
          const std::string& type,
          const std::string& context) override
          {
-         // return a list of certificates of CAs we trust for tls server certificates
-         // ownership of the pointers remains with Credentials_Manager
-         return m_stores;
-         }
-
-      std::vector<Botan::X509_Certificate> cert_chain(
-         const std::vector<std::string>& cert_key_types,
-         const std::string& type,
-         const std::string& context) override
-         {
-         // when using tls client authentication (optional), return
-         // a certificate chain being sent to the tls server,
-         // else an empty list
-         return std::vector<Botan::X509_Certificate>();
-         }
-
-      Botan::Private_Key* private_key_for(const Botan::X509_Certificate& cert,
-         const std::string& type,
-         const std::string& context) override
-         {
-         // when returning a chain in cert_chain(), return the private key
-         // associated with the leaf certificate here
-         return nullptr;
-         }
+            std::vector<Botan::Certificate_Store*> v;
+            
+            // don't ask for client certs
+            if (type == "tls-server")
+            {
+                return v;
+            }
+            
+            for (auto const& cs : this->m_stores)
+            {
+                v.push_back(cs.get());
+            }
+            
+            return v;
+    }
 
    private:
-       std::vector<Botan::Certificate_Store*> m_stores;
+        Botan::AutoSeeded_RNG rng;
+        std::vector<std::shared_ptr<Botan::Certificate_Store>> m_stores;
 };
 
 
@@ -196,75 +235,96 @@ void read_from_connection(int sockfd)
 
 int main()
    {
-   // prepare all the parameters
-   Callbacks callbacks;
-   Botan::AutoSeeded_RNG rng;
-   Botan::TLS::Session_Manager_In_Memory session_mgr(rng);
-   Client_Credentials creds;
-   Botan::TLS::Strict_Policy policy;
-
-   // open the tls connection
-   Botan::TLS::Client client(callbacks,
-                             session_mgr,
-                             creds,
-                             policy,
-                             rng,
-                             Botan::TLS::Server_Information("localhost", 443),
-                             Botan::TLS::Protocol_Version::TLS_V12);
-
-   while(!client.is_closed())
-   {
-      // read data received from the tls server, e.g., using BSD sockets or boost asio
-      // ...
-
-      // send data to the tls server using client.send_data()
-
-      std::cout <<" === Welcome to a file storage system ===\n"<<
-                "  To create an account write '""create""'\n"<<
-                "  To connect yourself write '""connect""'\n"<<
-                "  To quit write '""quit""'"<<std::endl;
+    bool BASIC_CLIENT_SERVER = true;
+   
     
-    //traiter le quit ici le reste envoyer et le serveur gère
-    std::string s;
-    while (std::cin >> s)
+    sockaddr_in sockaddr; 
+    sockaddr.sin_family = AF_INET;
+    sockaddr.sin_port = htons(9999); // htons is necessary to convert a number to
+    sockaddr.sin_addr.s_addr = INADDR_ANY;
+                                    // network byte order
+        int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (sockfd < 0)
     {
-        if (std::strcmp(s.c_str(),"quit")==0)
+        std::cout << "Failed to create socket. errno: " << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    if (connect(sockfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
+    {
+        std::cout << "Failed to connect to port 9999. errno: " << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    if(BASIC_CLIENT_SERVER)
+    {
+        // read data received from the tls server, e.g., using BSD sockets or boost asio
+        // ...
+
+        // send data to the tls server using client.send_data()
+
+        std::cout <<" === Welcome to a file storage system ===\n"<<
+                    "  To create an account write '""create""'\n"<<
+                    "  To connect yourself write '""connect""'\n"<<
+                    "  To quit write '""quit""'"<<std::endl;
+        
+        //traiter le quit ici le reste envoyer et le serveur gère
+        std::string s;
+        while (std::cin >> s)
         {
-            exit(EXIT_SUCCESS);
-        }else if (std::strcmp(s.c_str(),"create")==0 || std::strcmp(s.c_str(),"connect")==0)
-        {
-            break;
+            if (std::strcmp(s.c_str(),"quit")==0)
+            {
+                exit(EXIT_SUCCESS);
+            }else if (std::strcmp(s.c_str(),"create")==0 || std::strcmp(s.c_str(),"connect")==0)
+            {
+                break;
+            }
         }
-    }
 
-    int sockfd = connect_to_server();
+        int sockfd = connect_to_server();
 
-    std::string username = ask_username();
-    char pass[72];
-    ask_password(pass);
-    user usr(username,pass);
+        std::string username = ask_username();
+        char pass[72];
+        ask_password(pass);
+        user usr(username,pass);
 
 
-    //envoyer au server
-
+        //envoyer au server
 
 
 
-    
 
-    std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
-    
+        
 
-    read_from_connection(sockfd);
+        std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
+        
+
+        read_from_connection(sockfd);
 
 
-    char buff[100];
-    while(read(1, buff, 100) > 0)
+        char buff[100];
+        while(read(1, buff, 100) > 0)
+        {
+            write(sockfd, buff, 100);
+            memset(buff, 0, sizeof(buff));
+        }
+
+        close(sockfd);
+    }else
     {
-        write(sockfd, buff, 100);
-        memset(buff, 0, sizeof(buff));
-    }
+        // prepare all the parameters
+        Callbacks callbacks(sockfd);
+        Botan::TLS::Session_Manager_In_Memory session_mgr(Botan::system_rng());
+        Client_Credentials creds;
+        Botan::TLS::Strict_Policy policy;
 
-    close(sockfd);
-   }
+        // open the tls connection
+        Botan::TLS::Client client(callbacks,
+                                    session_mgr,
+                                    creds,
+                                    policy,
+                                    Botan::system_rng(),
+                                    Botan::TLS::Server_Information("", 9999),
+                                    Botan::TLS::Protocol_Version::TLS_V12);
+    }
 }

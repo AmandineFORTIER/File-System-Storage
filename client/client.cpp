@@ -11,7 +11,7 @@
 #include <cstring>
 #include <termios.h>
 
-
+#include<vector>
 
 std::string ask_username()
 {
@@ -109,16 +109,40 @@ int main()
     std::string username = ask_username();
     char pass[72];
     ask_password(pass);
-    user usr(username,pass);
+    // user usr(username,pass);
 
 
+/*
+    const char *cmd [2]={username.c_str(),pass};
+    // cmd.push_back(username.c_str());
+    // cmd.push_back(pass);
+    // cmd[0]=username.c_str();
+    // cmd[1]=pass;
+
+    write(sockfd, &cmd, sizeof(cmd));
+*/
     //envoyer au server
+
+
+
+    //Store file
+    //Dl files
+    //delete files
+    //files =  repo or files
+
+
+    //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
+
+
+    
+
+
 
 
 
 
     
-
+    /*
     std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
     
 
@@ -131,6 +155,7 @@ int main()
         write(sockfd, buff, 100);
         memset(buff, 0, sizeof(buff));
     }
+    */
 
     close(sockfd);
 
