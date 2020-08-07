@@ -6,6 +6,10 @@
 
 #IncludeRegexTransform: 
 
+/home/amandine/Desktop/File-System-Storage/User.h
+iostream
+-
+
 /home/amandine/Desktop/File-System-Storage/server/tlsSever.cpp
 botan-2/botan/tls_client.h
 -
@@ -34,6 +38,10 @@ botan-2/botan/rsa.h
 iostream
 -
 memory
+-
+../User.h
+/home/amandine/Desktop/File-System-Storage/User.h
+sstream
 -
 arpa/inet.h
 -

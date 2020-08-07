@@ -14,6 +14,8 @@
 
 #include <memory>
 
+#include "../User.h"
+#include <sstream>
 
 #include <arpa/inet.h>
 #include <sys/socket.h> // For socket functions
@@ -167,6 +169,7 @@ Botan::X509_Certificate create_certificate()
 
 void threadClient(sockaddr_in sockaddr,int connection)
 {
+    /*
     // Send a message to the connection
     std::string response = "Good talking to you\n";
     write(connection, response.c_str(), response.size());
@@ -177,6 +180,20 @@ void threadClient(sockaddr_in sockaddr,int connection)
     {
         std::cout << "The message was: " << buffer;
     }
+    */
+
+   char t[72]{};
+   user usr(std::string(" "),t);
+    std::stringstream ss;
+    char buffer[sizeof(usr)];
+    std::string temp;
+
+    read(connection, buffer, sizeof(usr));  //receive
+    temp.assign(buffer);
+    ss << temp;
+    ss >> usr;   //unserialize
+    std::cout<<temp<<std::endl;
+    std::cout<<"DONE"<<std::endl;
     
     close(connection);
 

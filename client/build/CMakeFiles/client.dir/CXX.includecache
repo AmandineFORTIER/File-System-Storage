@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/amandine/Desktop/File-System-Storage/client/client.h
+/home/amandine/Desktop/File-System-Storage/User.h
 iostream
 -
 
@@ -25,8 +25,10 @@ botan-2/botan/certstor.h
 -
 botan-2/botan/certstor_system.h
 -
-client.h
-/home/amandine/Desktop/File-System-Storage/client/client.h
+../User.h
+/home/amandine/Desktop/File-System-Storage/User.h
+sstream
+-
 sys/socket.h
 -
 netinet/in.h

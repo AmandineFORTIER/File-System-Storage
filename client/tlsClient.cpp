@@ -7,9 +7,9 @@
 #include <botan-2/botan/certstor_system.h>
 
 
+#include "../User.h"
 
-#include "client.h"
-
+#include <sstream>
 #include <sys/socket.h> // For socket functions
 #include <netinet/in.h> // For sockaddr_in
 #include <cstdlib> // For exit() and EXIT_FAILURE
@@ -289,14 +289,29 @@ int main()
         user usr(username,pass);
 
 
-        //envoyer au server
+/////////////////////////////////////////Serialization pour envoyer la struct////////////////////////////////////
+
+        std::stringstream ss;
+
+        ss << usr;    //serialize
+
+        write (sockfd, ss.str().c_str(), sizeof(usr)); //send - the buffer size must be adjusted, it's a sample
+
+        std::cout<<"DONE"<<std::endl;
+
+
+
+
+
+
+/////////////////////////////////////////Fin////////////////////////////////////
 
 
 
 
         
 
-        std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
+        // std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
         
 
         read_from_connection(sockfd);

@@ -2,21 +2,8 @@
 #define CLIENT_H
 
 #include <iostream>
+#include "../User.h"
 
-
-
-struct user
-{
-    private:
-        std::string username;
-        char (&password)[72];
-    public:
-        user(std::string username, char (&password)[72]);
-        std::string get_username();
-        char* get_password();
-        //void set_password(char password[72]);
-        std::string to_string();
-};
 
 struct command
 {
@@ -27,21 +14,6 @@ struct command
         command(std::string action, user usr);
         std::string to_string();
 };
-
-
-user::user(std::string username, char (&password)[72]):username(username),password(password){};
-
-char * user::get_password()
-{
-    return this->password;
-}
-
-
-std::string user::get_username()
-{
-    return this->username;
-}
-
 
 command::command(std::string action, user usr):action(action),usr(usr){};
 
