@@ -40,3 +40,10 @@ std::string user::get_username()
 }
 
 
+// std::string user::to_string()
+// {
+//     std::string to_string = this->username;
+//     to_string += " ";
+//     to_string += this->password;
+//     return to_string;
+// }
