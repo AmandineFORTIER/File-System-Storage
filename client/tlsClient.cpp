@@ -7,7 +7,7 @@
 #include <botan-2/botan/certstor_system.h>
 
 
-#include "../User.h"
+#include "../Message.h"
 
 #include <sstream>
 #include <sys/socket.h> // For socket functions
@@ -268,7 +268,7 @@ int main()
                     "  To connect yourself write '""connect""'\n"<<
                     "  To quit write '""quit""'"<<std::endl;
         
-        //traiter le quit ici le reste envoyer et le serveur gère
+
         std::string s;
         while (std::cin >> s)
         {
@@ -286,7 +286,7 @@ int main()
         std::string username = ask_username();
         char pass[72];
         ask_password(pass);
-        user usr(username,pass);
+        userMsg usr(s, username,pass);
 
 
 /////////////////////////////////////////Serialization pour envoyer la struct////////////////////////////////////

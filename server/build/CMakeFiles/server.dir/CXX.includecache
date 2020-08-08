@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/amandine/Desktop/File-System-Storage/User.h
+/home/amandine/Desktop/File-System-Storage/Message.h
 iostream
 -
 
@@ -39,8 +39,10 @@ iostream
 -
 memory
 -
-../User.h
-/home/amandine/Desktop/File-System-Storage/User.h
+../sqlite_files/sqlite3.h
+/home/amandine/Desktop/File-System-Storage/sqlite_files/sqlite3.h
+../Message.h
+/home/amandine/Desktop/File-System-Storage/Message.h
 sstream
 -
 arpa/inet.h
@@ -60,5 +62,9 @@ errno.h
 cstring
 -
 thread
+-
+
+/home/amandine/Desktop/File-System-Storage/sqlite_files/sqlite3.h
+stdarg.h
 -
 

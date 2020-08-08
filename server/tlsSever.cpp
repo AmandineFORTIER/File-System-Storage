@@ -1,20 +1,21 @@
-#include <botan-2/botan/tls_client.h>
-#include <botan-2/botan/tls_server.h>
-#include <botan-2/botan/tls_callbacks.h>
-#include <botan-2/botan/tls_session_manager.h>
-#include <botan-2/botan/tls_policy.h>
-#include <botan-2/botan/auto_rng.h>
-#include <botan-2/botan/certstor.h>
-#include <botan-2/botan/pk_keys.h>
-#include <botan-2/botan/pkcs8.h>
-#include <botan-2/botan/data_src.h>
-#include <botan-2/botan/x509self.h>
-#include <botan-2/botan/rsa.h>
+// #include <botan-2/botan/tls_client.h>
+// #include <botan-2/botan/tls_server.h>
+// #include <botan-2/botan/tls_callbacks.h>
+// #include <botan-2/botan/tls_session_manager.h>
+// #include <botan-2/botan/tls_policy.h>
+// #include <botan-2/botan/auto_rng.h>
+// #include <botan-2/botan/certstor.h>
+// #include <botan-2/botan/pk_keys.h>
+// #include <botan-2/botan/pkcs8.h>
+// #include <botan-2/botan/data_src.h>
+// #include <botan-2/botan/x509self.h>
+// #include <botan-2/botan/rsa.h>
 #include <iostream> // For cout
 
 #include <memory>
+#include "../sqlite_files/sqlite3.h"
 
-#include "../User.h"
+#include "../Message.h"
 #include <sstream>
 
 #include <arpa/inet.h>
@@ -31,139 +32,139 @@
 bool BASIC_CLIENT_SERVER = true;
 
 
-/**
- * @brief Callbacks invoked by TLS::Channel.
- *
- * Botan::TLS::Callbacks is an abstract class.
- * For improved readability, only the functions that are mandatory
- * to implement are listed here. See src/lib/tls/tls_callbacks.h.
- */
-class Callbacks : public Botan::TLS::Callbacks
-{
-   public:
-      void tls_emit_data(const uint8_t data[], size_t size) override
-         {
-         // send data to tls client, e.g., using BSD sockets or boost asio
-         }
+// /**
+//  * @brief Callbacks invoked by TLS::Channel.
+//  *
+//  * Botan::TLS::Callbacks is an abstract class.
+//  * For improved readability, only the functions that are mandatory
+//  * to implement are listed here. See src/lib/tls/tls_callbacks.h.
+//  */
+// class Callbacks : public Botan::TLS::Callbacks
+// {
+//    public:
+//       void tls_emit_data(const uint8_t data[], size_t size) override
+//          {
+//          // send data to tls client, e.g., using BSD sockets or boost asio
+//          }
 
-      void tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size) override
-         {
-         // process full TLS record received by tls client, e.g.,
-         // by passing it to the application
-         }
+//       void tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size) override
+//          {
+//          // process full TLS record received by tls client, e.g.,
+//          // by passing it to the application
+//          }
 
-      void tls_alert(Botan::TLS::Alert alert) override
-         {
-         // handle a tls alert received from the tls server
-         }
+//       void tls_alert(Botan::TLS::Alert alert) override
+//          {
+//          // handle a tls alert received from the tls server
+//          }
 
-      bool tls_session_established(const Botan::TLS::Session& session) override
-         {
-         // the session with the tls client was established
-         // return false to prevent the session from being cached, true to
-         // cache the session in the configured session manager
-         return false;
-         }
-    std::unique_ptr<Botan::TLS::Channel> channel;
-};
+//       bool tls_session_established(const Botan::TLS::Session& session) override
+//          {
+//          // the session with the tls client was established
+//          // return false to prevent the session from being cached, true to
+//          // cache the session in the configured session manager
+//          return false;
+//          }
+//     std::unique_ptr<Botan::TLS::Channel> channel;
+// };
 
-/**
- * @brief Credentials storage for the tls server.
- *
- * It returns a certificate and the associated private key to
- * authenticate the tls server to the client.
- * TLS client authentication is not requested.
- * See src/lib/tls/credentials_manager.h.
- */
+// /**
+//  * @brief Credentials storage for the tls server.
+//  *
+//  * It returns a certificate and the associated private key to
+//  * authenticate the tls server to the client.
+//  * TLS client authentication is not requested.
+//  * See src/lib/tls/credentials_manager.h.
+//  */
 
-class Server_Credentials : public Botan::Credentials_Manager
-{
-   public:
-      Server_Credentials()// : m_key(Botan::PKCS8::load_key("botan.randombit.net.key"))
-         {
-         }
-      std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(
-         const std::string& type,
-         const std::string& context) override
-         {
-            std::vector<Botan::Certificate_Store*> v;
+// class Server_Credentials : public Botan::Credentials_Manager
+// {
+//    public:
+//       Server_Credentials()// : m_key(Botan::PKCS8::load_key("botan.randombit.net.key"))
+//          {
+//          }
+//       std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(
+//          const std::string& type,
+//          const std::string& context) override
+//          {
+//             std::vector<Botan::Certificate_Store*> v;
             
-            // don't ask for client certs
-            if (type == "tls-server")
-            {
-                return v;
-            }
+//             // don't ask for client certs
+//             if (type == "tls-server")
+//             {
+//                 return v;
+//             }
             
-            for (auto const& cs : this->certstores)
-            {
-                v.push_back(cs.get());
-            }
+//             for (auto const& cs : this->certstores)
+//             {
+//                 v.push_back(cs.get());
+//             }
             
-            return v;
-         }
+//             return v;
+//          }
 
-      std::vector<Botan::X509_Certificate> cert_chain(
-         const std::vector<std::string>& cert_key_types,
-         const std::string& type,
-         const std::string& context) override
-         {
-            BOTAN_UNUSED(type);
+//       std::vector<Botan::X509_Certificate> cert_chain(
+//          const std::vector<std::string>& cert_key_types,
+//          const std::string& type,
+//          const std::string& context) override
+//          {
+//             BOTAN_UNUSED(type);
             
-            for (auto const& i : this->creds)
-            {
-                if (std::find(cert_key_types.begin(), cert_key_types.end(), i.key->algo_name()) == cert_key_types.end())
-                {
-                    continue;
-                }
+//             for (auto const& i : this->creds)
+//             {
+//                 if (std::find(cert_key_types.begin(), cert_key_types.end(), i.key->algo_name()) == cert_key_types.end())
+//                 {
+//                     continue;
+//                 }
                 
-                if (context != "" && !i.certs[0].matches_dns_name(context))
-                {
-                    continue;
-                }
+//                 if (context != "" && !i.certs[0].matches_dns_name(context))
+//                 {
+//                     continue;
+//                 }
                 
-                return i.certs;
-            }
+//                 return i.certs;
+//             }
             
-            return std::vector<Botan::X509_Certificate>();
-         }
+//             return std::vector<Botan::X509_Certificate>();
+//          }
 
-      Botan::Private_Key* private_key_for(const Botan::X509_Certificate& cert,
-         const std::string& type,
-         const std::string& context) override
-         {
-            for (auto const& i : this->creds)
-            {
-                if (cert == i.certs[0])
-                {
-                    return i.key.get();
-                }
-            }
+//       Botan::Private_Key* private_key_for(const Botan::X509_Certificate& cert,
+//          const std::string& type,
+//          const std::string& context) override
+//          {
+//             for (auto const& i : this->creds)
+//             {
+//                 if (cert == i.certs[0])
+//                 {
+//                     return i.key.get();
+//                 }
+//             }
             
-            return nullptr;
-         }
+//             return nullptr;
+//          }
 
-      private:
-        Botan::AutoSeeded_RNG rng;
-        std::vector<std::shared_ptr<Botan::Certificate_Store>> certstores;
-        struct certificate_info
-        {
-            std::vector<Botan::X509_Certificate> certs;
-            std::shared_ptr<Botan::Private_Key> key;
-        };
-        std::vector<certificate_info> creds;
-};
+//       private:
+//         Botan::AutoSeeded_RNG rng;
+//         std::vector<std::shared_ptr<Botan::Certificate_Store>> certstores;
+//         struct certificate_info
+//         {
+//             std::vector<Botan::X509_Certificate> certs;
+//             std::shared_ptr<Botan::Private_Key> key;
+//         };
+//         std::vector<certificate_info> creds;
+// };
 
-Botan::X509_Certificate create_certificate()
-{
-   uint32_t expire_time = 60*60*24*90; //days of validity in seconds ==> 90 days
-   Botan::X509_Cert_Options opt("server/Belgium",expire_time);
+// Botan::X509_Certificate create_certificate()
+// {
+//    uint32_t expire_time = 60*60*24*90; //days of validity in seconds ==> 90 days
+//    Botan::X509_Cert_Options opt("server/Belgium",expire_time);
 
-   Botan::AutoSeeded_RNG rng;
-   Botan::RSA_PrivateKey pKey(rng,4096);
-   Botan::X509_Certificate cert = Botan::X509::create_self_signed_cert(opt,pKey,"SHA-256",rng);
+//    Botan::AutoSeeded_RNG rng;
+//    Botan::RSA_PrivateKey pKey(rng,4096);
+//    Botan::X509_Certificate cert = Botan::X509::create_self_signed_cert(opt,pKey,"SHA-256",rng);
 
-   return cert;
-}
+//    return cert;
+// }
 
 
 
@@ -182,8 +183,10 @@ void threadClient(sockaddr_in sockaddr,int connection)
     }
     */
 
-   char t[72]{};
-   user usr(std::string(" "),t);
+    char t[72]{};
+    std::string cmd;
+    std::string user;
+    userMsg usr(cmd,user,t);
     std::stringstream ss;
     char buffer[sizeof(usr)];
     std::string temp;
@@ -192,9 +195,89 @@ void threadClient(sockaddr_in sockaddr,int connection)
     temp.assign(buffer);
     ss << temp;
     ss >> usr;   //unserialize
-    std::cout<<temp<<std::endl;
-    std::cout<<"DONE"<<std::endl;
+
+
+    std::cout<<usr.get_cmd_request()<<std::endl;
+    std::cout<<usr.get_username()<<std::endl;
+    std::cout<<usr.get_password()<<std::endl;
+
+
+    if (strcmp(usr.get_cmd_request().c_str(),"create")==0)
+    {
+        
+
+        sqlite3 *db;
+        sqlite3_stmt* stmt;
+        char *zErrMsg = 0;
+        int rc = sqlite3_open("../database/users.db",&db);
+        if (rc != SQLITE_OK) 
+        {
+            fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+            sqlite3_close(db);
+            exit(1);
+        }
+
+        char sql[] = "INSERT INTO user(username, password, grade) VALUES (?, ?, ?)";
+		rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+		if (rc != SQLITE_OK) 
+		{
+			fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+			sqlite3_close(db);
+			exit(1);
+		}
+		std::string grade = "User";
+		rc = sqlite3_bind_text(stmt, 1, usr.get_username().c_str() ,sizeof(usr.get_username().c_str()),NULL);
+		if(rc != SQLITE_OK) {
+			fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+			sqlite3_close(db);
+			exit(1);
+		}
+
+		rc = sqlite3_bind_text(stmt, 2, usr.get_password() ,sizeof(usr.get_password()),NULL);
+		if(rc != SQLITE_OK) {
+			fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+			sqlite3_close(db);
+			exit(1);
+		}
+
+		rc = sqlite3_bind_text(stmt, 3, grade.c_str() ,sizeof(grade),NULL);
+		if(rc != SQLITE_OK) {
+			fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+			sqlite3_close(db);
+			exit(1);
+		}
+		
+		rc = sqlite3_step(stmt);
+		if(rc != SQLITE_DONE) {
+			fprintf(stderr, "insert statement didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+		} else {
+			printf("INSERT completed\n\n");
+		}
+
+        rc = sqlite3_clear_bindings(stmt);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        rc = sqlite3_reset(stmt);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        rc = sqlite3_finalize(stmt);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        rc = sqlite3_close(db);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+
+    }
     
+
     close(connection);
 
 }
@@ -324,95 +407,95 @@ int main()
     
     }else
     {
-        //Botan::X509_Certificate cert =  create_certificate();
-        //std::cout<<cert.to_string()<<std::endl;
+        // //Botan::X509_Certificate cert =  create_certificate();
+        // //std::cout<<cert.to_string()<<std::endl;
 
-        // prepare all the parameters
-        Callbacks callbacks;
-        Botan::AutoSeeded_RNG rng;
-        Botan::TLS::Session_Manager_In_Memory session_mgr(rng);
+        // // prepare all the parameters
+        // Callbacks callbacks;
+        // Botan::AutoSeeded_RNG rng;
+        // Botan::TLS::Session_Manager_In_Memory session_mgr(rng);
 
-        std::string hostname = "localhost";
-        uint16_t port = 9999;
-        Botan::TLS::Server_Information server_info(hostname, port);
-        Botan::TLS::Session sess;
-        session_mgr.load_from_server_info(server_info,sess);
+        // std::string hostname = "localhost";
+        // uint16_t port = 9999;
+        // Botan::TLS::Server_Information server_info(hostname, port);
+        // Botan::TLS::Session sess;
+        // session_mgr.load_from_server_info(server_info,sess);
 
-        Server_Credentials creds;
-        Botan::TLS::Strict_Policy policy;
+        // Server_Credentials creds;
+        // Botan::TLS::Strict_Policy policy;
 
-        sockfd =  create_socket(999);
+        // sockfd =  create_socket(999);
 
-        // read data received from the tls client, e.g., using BSD sockets or boost asio
-        // and pass it to server.received_data().
-        // ...
+        // // read data received from the tls client, e.g., using BSD sockets or boost asio
+        // // and pass it to server.received_data().
+        // // ...
 
-        // send data to the tls client using server.send_data()
-        // ...
-
-
-
-            // accept tls connection from client
-        Botan::TLS::Server server(callbacks,
-                                session_mgr,
-                                creds,
-                                policy,
-                                rng);
+        // // send data to the tls client using server.send_data()
+        // // ...
 
 
 
-        fd_set writefds;
-        FD_ZERO(&writefds);
-        while(!server.is_closed())
-        {
-            fd_set readfds;
-            FD_ZERO(&readfds);
-            FD_ZERO(&writefds);
-            FD_SET(sockfd, &readfds);
-            if (server.is_active())
-            {
-                FD_SET(STDIN_FILENO, &readfds);
-            }
-
-            FD_SET(sockfd, &writefds);
+        //     // accept tls connection from client
+        // Botan::TLS::Server server(callbacks,
+        //                         session_mgr,
+        //                         creds,
+        //                         policy,
+        //                         rng);
 
 
-            select(sockfd + 1, &readfds, &writefds, nullptr, nullptr);
 
-            if (server.is_closed())
-            {
-                // TODO: Do something better (e.g. throw or log)
-                std::cout << "server_tls_socket::send_receive: Socket closed." << std::endl;
-            }
+        // fd_set writefds;
+        // FD_ZERO(&writefds);
+        // while(!server.is_closed())
+        // {
+        //     fd_set readfds;
+        //     FD_ZERO(&readfds);
+        //     FD_ZERO(&writefds);
+        //     FD_SET(sockfd, &readfds);
+        //     if (server.is_active())
+        //     {
+        //         FD_SET(STDIN_FILENO, &readfds);
+        //     }
 
-            try
-            {
-               uint8_t buffer[4 * 1024] = {0};
-                ssize_t bytes_read = read(sockfd, buffer, sizeof(buffer));
+        //     FD_SET(sockfd, &writefds);
 
-                if (bytes_read == -1)
-                {
-                    // TODO: Do something better (e.g. throw or log)
-                    std::cout << "tls_socket::read_socket: Error: " << std::strerror(errno) << std::endl;
-                }
-                else if (bytes_read == 0)
-                {
-                    // TODO: Do something better (e.g. throw or log)
-                    std::cout << "tls_socket::read_socket: Other end closed the connection" << std::endl;
-                    callbacks.channel.get()->close();
-                }
-                else if (bytes_read > 0)
-                {
-                    callbacks.channel.get()->received_data(buffer, bytes_read);
-                }
-            }
-            catch (std::exception& e)
-            {
-                // TODO: Do something better (e.g. throw or log)
-                std::cout << "server_tls_socket::send_receive: Error: " << e.what() << std::endl;
-            }
 
-        }    
+        //     select(sockfd + 1, &readfds, &writefds, nullptr, nullptr);
+
+        //     if (server.is_closed())
+        //     {
+        //         // TODO: Do something better (e.g. throw or log)
+        //         std::cout << "server_tls_socket::send_receive: Socket closed." << std::endl;
+        //     }
+
+        //     try
+        //     {
+        //        uint8_t buffer[4 * 1024] = {0};
+        //         ssize_t bytes_read = read(sockfd, buffer, sizeof(buffer));
+
+        //         if (bytes_read == -1)
+        //         {
+        //             // TODO: Do something better (e.g. throw or log)
+        //             std::cout << "tls_socket::read_socket: Error: " << std::strerror(errno) << std::endl;
+        //         }
+        //         else if (bytes_read == 0)
+        //         {
+        //             // TODO: Do something better (e.g. throw or log)
+        //             std::cout << "tls_socket::read_socket: Other end closed the connection" << std::endl;
+        //             callbacks.channel.get()->close();
+        //         }
+        //         else if (bytes_read > 0)
+        //         {
+        //             callbacks.channel.get()->received_data(buffer, bytes_read);
+        //         }
+        //     }
+        //     catch (std::exception& e)
+        //     {
+        //         // TODO: Do something better (e.g. throw or log)
+        //         std::cout << "server_tls_socket::send_receive: Error: " << e.what() << std::endl;
+        //     }
+
+        // }    
     }
 
 }

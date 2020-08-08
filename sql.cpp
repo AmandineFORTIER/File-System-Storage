@@ -37,8 +37,6 @@ int main()
 		char sql[] = "INSERT INTO user(username, password, grade) VALUES (?, ?, ?)";
 		rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
 		if (rc != SQLITE_OK) 
-	if (rc != SQLITE_OK) 
-		if (rc != SQLITE_OK) 
 		{
 			fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
 			sqlite3_close(db);

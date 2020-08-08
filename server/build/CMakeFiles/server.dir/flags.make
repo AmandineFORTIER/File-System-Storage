@@ -6,5 +6,5 @@ CXX_FLAGS =   -std=gnu++17
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/usr/local/include/botan-2 
+CXX_INCLUDES = -I/usr/local/include/botan-2 -I/home/amandine/Desktop/File-System-Storage/server/../sqlite_files 
 
