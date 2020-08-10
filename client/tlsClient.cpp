@@ -214,12 +214,11 @@ int connect_to_server()
     return sockfd;
 }
 
-int read_from_connection(int sockfd)
+char read_from_connection(int sockfd)
 {
     // Read from the connection
     char buffer[1024];
     read(sockfd, buffer, 1024);
-    std::cout<<buffer[0]<<std::endl;
     return buffer[0];
 }
 
@@ -227,9 +226,13 @@ int read_from_connection(int sockfd)
 
 
 
-
-
-
+void send_user_connection(userMsg usr, int sockfd)
+{
+    std::stringstream ss;
+    ss << usr;    //serialize
+    write (sockfd, ss.str().c_str(), sizeof(usr)); 
+    ss.clear();
+}
 
 
 
@@ -264,68 +267,147 @@ int main()
 
         // send data to the tls server using client.send_data()
 
-        std::cout <<" === Welcome to a file storage system ===\n"<<
-                    "  To create an account write '""create""'\n"<<
-                    "  To connect yourself write '""connect""'\n"<<
-                    "  To quit write '""quit""'"<<std::endl;
-        
-
-        std::string s;
-        while (std::cin >> s)
-        {
-            if (std::strcmp(s.c_str(),"quit")==0)
-            {
-                exit(EXIT_SUCCESS);
-            }else if (std::strcmp(s.c_str(),"create")==0 || std::strcmp(s.c_str(),"connect")==0)
-            {
-                break;
-            }
-        }
-
-        int sockfd = connect_to_server();
-
-        std::string username = ask_username();
+        int sockfd=connect_to_server();;
+        std::string username;
         char pass[72];
-        ask_password(pass);
-        userMsg usr(s, username,pass);
+        bool not_connected = false;
+        std::string s;
+        bool cmd_well_finished = false;
+        do{
+            std::cout <<" === Welcome to a file storage system ===\n"<<
+                        "  To create an account write '""create""'\n"<<
+                        "  To connect yourself write '""connect""'\n"<<
+                        "  To quit write '""quit""'"<<std::endl;
+            
+
+            while (std::cin >> s)
+            {
+                if (std::strcmp(s.c_str(),"quit")==0)
+                {
+                    userMsg usr(s, username, pass);
+                    send_user_connection(usr, sockfd);
+                    close(sockfd);
+                    exit(EXIT_SUCCESS);
+                    break;
+                }else if (std::strcmp(s.c_str(),"create")==0 || std::strcmp(s.c_str(),"connect")==0)
+                {
+                    break;
+                }
+                std::cin.clear();
+            }
+            
+            username = ask_username();
+            ask_password(pass);
+            userMsg usr(s, username,pass);
+            username.clear();
+
+            send_user_connection(usr, sockfd);
+            
 
 
-/////////////////////////////////////////Serialization pour envoyer la struct////////////////////////////////////
+            // if (not_connected = ((read_from_connection(sockfd) == '0')||(strcmp(s.c_str(),"create")==0)))
+            // {
+            //     std::cout<<"You're not connected."<<std::endl;
+            // }
 
-        std::stringstream ss;
+            cmd_well_finished = read_from_connection(sockfd) == '1';
+            not_connected = std::strcmp(usr.get_cmd_request().c_str(),"create")==0;
 
-        ss << usr;    //serialize
+            if (!cmd_well_finished)
+            {
+                if(std::strcmp(usr.get_cmd_request().c_str(),"create")==0)
+                {
+                    std::cout<<"Problem to create a user. Try again."<<std::endl;
+                }else if(std::strcmp(usr.get_cmd_request().c_str(),"connect")==0)
+                {
+                    std::cout<<"Bad username or password. Try another username."<<std::endl;
+                }else
+                {
+                    std::cout<<"Undefined error"<<std::endl;
+                }
+            }       
 
-        write (sockfd, ss.str().c_str(), sizeof(usr)); //send - the buffer size must be adjusted, it's a sample
-        ss.clear();
-
-
-
-
-
-
-
-/////////////////////////////////////////Fin////////////////////////////////////
-
-
-
-
-        
-
-        // std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
-        
-
-        int res = read_from_connection(sockfd);
+        }while(not_connected || !cmd_well_finished);
 
 
-        char buff[100];
-        while(read(1, buff, 100) > 0)
+    std::cout <<" === Here are your commands as a connected user ===\n"<<
+            "  To delete a file (or repo) write '""del""'\n"<<
+            "  To download a file (or repo) write '""dl""'\n"<<
+            "  To upload a file (or repo) write '""upload""'\n"<<
+            "  To create a repo write '""create""'\n"<<
+            "  To list all files/repo write '""ls""'\n"<<
+            "  To quit write '""quit""'"<<std::endl;
+    std::string s;
+    while (std::cin >> s)
+    {
+        if (s == "quit")
         {
-            write(sockfd, buff, 100);
-            memset(buff, 0, sizeof(buff));
-        }
+            userMsg usr(s, username, pass);
+            send_user_connection(usr, sockfd);
+            close(sockfd);
+            exit(EXIT_SUCCESS);
+        }else{
 
-        close(sockfd);
+             //Store file
+            //Dl files
+            //delete files
+            //list files
+            //files =  repo or files
+
+
+            //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
+
+            std::string param;
+            std::string path = "./files/";
+
+            if(std::strcmp(s.c_str(),"del")==0)
+            {
+                std::cout<<"You're in the delete section"<<std::endl;
+
+            // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
+
+            }else if (std::strcmp(s.c_str(),"dl")==0)
+            {
+                std::cout<<"You're in the download section"<<std::endl;
+
+
+            }else if (std::strcmp(s.c_str(),"upload")==0)
+            {
+                std::cout<<"You're in the upload section"<<std::endl;
+
+                std::filesystem::copy("./files/a", "./files/test", std::filesystem::copy_options::recursive);
+
+            }else if (std::strcmp(s.c_str(),"create")==0)
+            {
+                std::cout<<"You're in the create section"<<std::endl;
+                std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                
+                std::cin >> param;
+
+                std::string merge = path+param;
+
+                const char* tmp[]={merge.c_str()};
+                std::cout<<"path : "<<tmp<<std::endl;
+
+                if(!mkdir(*tmp,S_IRWXU))
+                {
+                    std::cout<<"repo created"<<std::endl;
+                }else
+                {
+                    std::cout<<"Error creation repo"<<std::endl;
+                }
+                
+
+            }
+
+
+
+
+
+
+
+
+        //close(sockfd);
     }else
     {
         // prepare all the parameters
