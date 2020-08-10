@@ -1,19 +1,8 @@
-// #include <botan-2/botan/tls_client.h>
-// #include <botan-2/botan/tls_server.h>
-// #include <botan-2/botan/tls_callbacks.h>
-// #include <botan-2/botan/tls_session_manager.h>
-// #include <botan-2/botan/tls_policy.h>
-// #include <botan-2/botan/auto_rng.h>
-// #include <botan-2/botan/certstor.h>
-// #include <botan-2/botan/pk_keys.h>
-// #include <botan-2/botan/pkcs8.h>
-// #include <botan-2/botan/data_src.h>
-// #include <botan-2/botan/x509self.h>
-// #include <botan-2/botan/rsa.h>
-#include <iostream> // For cout
+// #include <iostream> // For cout
 
 #include <memory>
-#include "../sqlite_files/sqlite3.h"
+
+#include <sqlite3.h>
 
 #include "../Message.h"
 #include <sstream>
@@ -28,6 +17,12 @@
 #include <cstring>
 #include <thread>
 
+
+#include <botan-2/botan/bcrypt.h>
+#include <botan-2/botan/botan.h>
+
+#include <cstdlib>
+#include <iostream>
 
 bool BASIC_CLIENT_SERVER = true;
 
@@ -196,16 +191,24 @@ void threadClient(sockaddr_in sockaddr,int connection)
     ss << temp;
     ss >> usr;   //unserialize
 
+    memset(buffer, 0, sizeof(usr));
+    ss.clear();
 
-    std::cout<<usr.get_cmd_request()<<std::endl;
-    std::cout<<usr.get_username()<<std::endl;
-    std::cout<<usr.get_password()<<std::endl;
+
+    // std::cout<<usr.get_cmd_request()<<std::endl;
+    // std::cout<<usr.get_username()<<std::endl;
+    // std::cout<<usr.get_password()<<std::endl;
+
+    
 
 
     if (strcmp(usr.get_cmd_request().c_str(),"create")==0)
     {
+        Botan::AutoSeeded_RNG rng;
+        auto hash = Botan::generate_bcrypt(usr.get_password(), rng, 12);
+        std::cout<<hash<<std::endl;
         
-
+        
         sqlite3 *db;
         sqlite3_stmt* stmt;
         char *zErrMsg = 0;
@@ -226,14 +229,14 @@ void threadClient(sockaddr_in sockaddr,int connection)
 			exit(1);
 		}
 		std::string grade = "User";
-		rc = sqlite3_bind_text(stmt, 1, usr.get_username().c_str() ,sizeof(usr.get_username().c_str()),NULL);
+		rc = sqlite3_bind_blob(stmt, 1, usr.get_username().c_str() ,usr.get_username().length(),NULL);
 		if(rc != SQLITE_OK) {
 			fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
 			sqlite3_close(db);
 			exit(1);
 		}
 
-		rc = sqlite3_bind_text(stmt, 2, usr.get_password() ,sizeof(usr.get_password()),NULL);
+		rc = sqlite3_bind_blob(stmt, 2, hash.c_str() ,hash.length(),NULL);
 		if(rc != SQLITE_OK) {
 			fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
 			sqlite3_close(db);
@@ -274,6 +277,74 @@ void threadClient(sockaddr_in sockaddr,int connection)
             fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
         }
 
+
+    }else if(strcmp(usr.get_cmd_request().c_str(),"connect")==0)
+    {
+        sqlite3 *db;
+        sqlite3_stmt* stmt;
+        char *zErrMsg = 0;
+        int rc = sqlite3_open("../database/users.db",&db);
+        if (rc != SQLITE_OK) 
+        {
+            fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+            sqlite3_close(db);
+            exit(1);
+        }
+
+        char sql[] = "SELECT username, password FROM user WHERE username = ?";
+		rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+		if (rc != SQLITE_OK) 
+		{
+			fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+			sqlite3_close(db);
+			exit(1);
+		}
+		rc = sqlite3_bind_blob(stmt, 1, usr.get_username().c_str(),usr.get_username().length(),NULL);
+		if(rc != SQLITE_OK) {
+			fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+			sqlite3_close(db);
+			exit(1);
+		}
+
+        bool is_good_password=false;
+        std::string username="";
+
+		if ( (rc = sqlite3_step(stmt)) == SQLITE_ROW) 
+        {
+            const unsigned char* name = sqlite3_column_text(stmt, 0);
+            const std::string temp_name = reinterpret_cast<const char *>(name);
+            username = temp_name;
+            auto hash = sqlite3_column_text(stmt, 1);
+            const std::string h = reinterpret_cast<const char*>(hash);
+            is_good_password=Botan::check_bcrypt(usr.get_password(),h);
+		}
+        
+        rc = sqlite3_clear_bindings(stmt);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        rc = sqlite3_reset(stmt);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        rc = sqlite3_finalize(stmt);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        rc = sqlite3_close(db);
+        if(rc != SQLITE_OK) {
+            fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+        }
+
+        // Send a message to the connection.
+        std::cout<<is_good_password<<std::endl;
+        std::string reponse = is_good_password?"1":"0"; 
+        write(connection, reponse.c_str(), reponse.length());
+        
+        
 
     }
     

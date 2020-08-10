@@ -214,12 +214,13 @@ int connect_to_server()
     return sockfd;
 }
 
-void read_from_connection(int sockfd)
+int read_from_connection(int sockfd)
 {
     // Read from the connection
-    char buffer[100];
-    auto bytesRead = read(sockfd, buffer, 100);
-    std::cout<<buffer<<std::endl;
+    char buffer[1024];
+    read(sockfd, buffer, 1024);
+    std::cout<<buffer[0]<<std::endl;
+    return buffer[0];
 }
 
 
@@ -296,8 +297,8 @@ int main()
         ss << usr;    //serialize
 
         write (sockfd, ss.str().c_str(), sizeof(usr)); //send - the buffer size must be adjusted, it's a sample
+        ss.clear();
 
-        std::cout<<"DONE"<<std::endl;
 
 
 
@@ -314,7 +315,7 @@ int main()
         // std::cout<<usr.get_username()<<" "<<usr.get_password()<<std::endl;
         
 
-        read_from_connection(sockfd);
+        int res = read_from_connection(sockfd);
 
 
         char buff[100];
