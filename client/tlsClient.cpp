@@ -366,9 +366,8 @@ int main()
                 // std::string path = "./files/";
                 std::string path;
 
-                if(std::strcmp(s.c_str(),"del")==0)
+                if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"dl")==0||std::strcmp(s.c_str(),"create")==0)
                 {
-                    std::cout<<"You're in the delete section"<<std::endl;
                     std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
                     std::cin >> path;
                     cmdMsg msg(s,path);
@@ -376,47 +375,49 @@ int main()
                 // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
                 //le server utilisera execl PAS p
 
-                }else if (std::strcmp(s.c_str(),"dl")==0)
-                {
-                    std::cout<<"You're in the download section"<<std::endl;
-                    std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
-                    std::cin >> path;
-                    cmdMsg msg(s,path);
-
-
                 }else if (std::strcmp(s.c_str(),"upload")==0)
                 {
-                    std::cout<<"You're in the upload section"<<std::endl;
-
-                    // std::filesystem::copy("./files/a", "./files/test", std::filesystem::copy_options::recursive);
-
-                }else if (std::strcmp(s.c_str(),"create")==0)
-                {
-                    std::cout<<"You're in the create section"<<std::endl;
-                    std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
-                    
+                    std::cout<<"Enter the path to upload on client side. e.g. path/myDirectory : ";
                     std::cin >> path;
-                    cmdMsg msg(s,path);
+                    std::string dst;
+                    std::cout<<"Enter the path on server side. e.g. path/myDirectory : ";
+                    std::cin >> dst;
+                    cmdMsg msg(s,path,dst);
+                    send_user_command(msg,sockfd);
+                }
+                // else if (std::strcmp(s.c_str(),"upload")==0)
+                // {
+                //     std::cout<<"You're in the upload section"<<std::endl;
+
+                //     // std::filesystem::copy("./files/a", "./files/test", std::filesystem::copy_options::recursive);
+
+                // }else if (std::strcmp(s.c_str(),"create")==0)
+                // {
+                //     std::cout<<"You're in the create section"<<std::endl;
+                //     std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                    
+                //     std::cin >> path;
+                //     cmdMsg msg(s,path);
 
 
 
-                    // std::cin >> param;
+                //     // std::cin >> param;
 
-                    // std::string merge = path+param;
+                //     // std::string merge = path+param;
 
-                    // const char* tmp[]={merge.c_str()};
-                    // std::cout<<"path : "<<tmp<<std::endl;
+                //     // const char* tmp[]={merge.c_str()};
+                //     // std::cout<<"path : "<<tmp<<std::endl;
 
-                    // if(!mkdir(*tmp,S_IRWXU))
-                    // {
-                    //     std::cout<<"repo created"<<std::endl;
-                    // }else
-                    // {
-                    //     std::cout<<"Error creation repo"<<std::endl;
-                    // }
+                //     // if(!mkdir(*tmp,S_IRWXU))
+                //     // {
+                //     //     std::cout<<"repo created"<<std::endl;
+                //     // }else
+                //     // {
+                //     //     std::cout<<"Error creation repo"<<std::endl;
+                //     // }
                     
 
-                }
+                // }
                 std::cout<<read_from_connection(sockfd)<<std::endl;
         }
 

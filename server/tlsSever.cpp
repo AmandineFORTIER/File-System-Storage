@@ -25,6 +25,10 @@
 #include <botan-2/botan/bcrypt.h>
 #include <botan-2/botan/botan.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
+
 #include <cstdlib>
 #include <iostream>
 
@@ -415,7 +419,6 @@ void threadClient(sockaddr_in sockaddr,int connection)
 
     if (connected)
     {
-        std::cout<<"CONNECTED SECTION"<<std::endl;
         std::string com="";
         cmdMsg connected_cmd(com);
         std::stringstream ss;
@@ -448,17 +451,31 @@ void threadClient(sockaddr_in sockaddr,int connection)
 
             std::string path = connected_cmd.get_pathSrc();
             std::string origin_path = "./files/";
-            std::string tmp;
+            std::string tmp(origin_path+path);
 
             if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
             {
                 std::cout<<"You're in the delete section"<<std::endl;
                 std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
 
-                tmp = origin_path+path;
-                std::cout<<tmp.c_str()<<std::endl;
                 std::filesystem::remove_all(tmp.c_str());
+            }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"create")==0)
+            {
+                if(!mkdir(tmp.c_str(),0777))
+                {
+                    std::cout<<"repo created"<<std::endl;
+                }else
+                {
+                    std::cout<<"Error creation repo"<<std::endl;
+                }
+            }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"dl")==0)
+            {
+                /* code */
+            }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"upload")==0)
+            {
+                /* code */
             }
+            
         }
         
 
