@@ -17,6 +17,10 @@
 #include <cstring>
 #include <thread>
 
+#include <unistd.h>
+
+#include <sys/wait.h>
+#include <filesystem>
 
 #include <botan-2/botan/bcrypt.h>
 #include <botan-2/botan/botan.h>
@@ -185,6 +189,7 @@ void threadClient(sockaddr_in sockaddr,int connection)
     std::stringstream ss;
     char buffer[sizeof(usr)];
     std::string temp;
+    bool connected = false;
     do
     {
         cmd.clear();
@@ -208,7 +213,11 @@ void threadClient(sockaddr_in sockaddr,int connection)
         
 
         bool well_terminated = false;
-        quit = (strcmp(usr.get_cmd_request().c_str(),"quit")==0);
+        if ((strcmp(usr.get_cmd_request().c_str(),"quit")==0))
+        {
+            break;
+        }
+        
         
         if (strcmp(usr.get_cmd_request().c_str(),"create")==0)
         {
@@ -292,6 +301,46 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
             }
 
+            //creation du user unix execl pas p
+            // std::string group = (strcmp(grade.c_str(),"User")==0)?"FileStorageUser":"FileStorageAdmin";
+
+            // if(fork()==0)
+            // {
+            //     if(fork()==0)
+            //     {
+            //         execl("/usr/sbin/groupadd","groupadd",group.c_str(),0);
+            //         perror("groupadd error");
+            //         exit(0);
+            //     }else
+            //     {
+            //         exit(0);
+            //     }
+            //     std::cout<<"add"<<std::endl;
+
+            //     if(fork()==0)
+            //     {
+            //         execl("/usr/sbin/useradd","useradd","-g",group,usr.get_username().c_str(),0);
+            //         perror("useradd error");
+            //         exit(0);
+            //     }else
+            //     {
+            //         exit(0);
+            //     }
+
+            //     if(fork()==0)
+            //     {
+            //         execl("/usr/bin/passwd",group.c_str(),usr.get_username().c_str(),0);
+            //         perror("passwd error");
+            //         exit(0);
+            //     }else
+            //     {
+            //         exit(0);
+            //     }
+            // }
+            // wait(0);
+
+
+
             // Send a message to the connection.
             std::string reponse = well_terminated?"1":"0"; 
             write(connection, reponse.c_str(), reponse.length());
@@ -359,9 +408,66 @@ void threadClient(sockaddr_in sockaddr,int connection)
             // Send a message to the connection.
             std::string reponse = well_terminated?"1":"0"; 
             write(connection, reponse.c_str(), reponse.length());
+            connected = well_terminated;
         }
         
-    } while (!quit);
+    } while (!connected);
+
+    if (connected)
+    {
+        std::cout<<"CONNECTED SECTION"<<std::endl;
+        std::string com="";
+        cmdMsg connected_cmd(com);
+        std::stringstream ss;
+        char buffer[sizeof(connected_cmd)];
+        std::string tempp;
+
+        read(connection, buffer, sizeof(connected_cmd));  //receive
+        tempp.assign(buffer); 
+        ss << tempp;
+        ss >> connected_cmd;   //unserialize
+
+        memset(buffer, 0, sizeof(connected_cmd));
+        ss.clear();
+
+
+        std::cout<<connected_cmd.get_cmd_request().c_str()<<std::endl;
+        
+        if (strcmp(connected_cmd.get_cmd_request().c_str(),"quit")==0)
+        {
+            
+        }else{
+
+            //Store file
+            //Dl files
+            //delete files
+            //files =  repo or files
+
+
+            //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
+
+            std::string path = connected_cmd.get_pathSrc();
+            std::string origin_path = "./files/";
+            std::string tmp;
+
+            if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
+            {
+                std::cout<<"You're in the delete section"<<std::endl;
+                std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+
+                tmp = origin_path+path;
+                std::cout<<tmp.c_str()<<std::endl;
+                std::filesystem::remove_all(tmp.c_str());
+            }
+        }
+        
+
+
+
+
+    }
+    
+
     std::cout<<"Disconnected"<<std::endl;
     close(connection);
 

@@ -235,10 +235,17 @@ void send_user_connection(userMsg usr, int sockfd)
 }
 
 
+void send_user_command(cmdMsg cmd, int sockfd)
+{
+    std::stringstream ss;
+    ss << cmd;    //serialize
+    write (sockfd, ss.str().c_str(), sizeof(cmd)); 
+    ss.clear();
+}
 
 
 int main()
-   {
+{
     bool BASIC_CLIENT_SERVER = true;
    
     
@@ -330,82 +337,91 @@ int main()
         }while(not_connected || !cmd_well_finished);
 
 
-    std::cout <<" === Here are your commands as a connected user ===\n"<<
-            "  To delete a file (or repo) write '""del""'\n"<<
-            "  To download a file (or repo) write '""dl""'\n"<<
-            "  To upload a file (or repo) write '""upload""'\n"<<
-            "  To create a repo write '""create""'\n"<<
-            "  To list all files/repo write '""ls""'\n"<<
-            "  To quit write '""quit""'"<<std::endl;
-    std::string s;
-    while (std::cin >> s)
-    {
-        if (s == "quit")
+        std::cout <<" === Here are your commands as a connected user ===\n"<<
+                "  To delete a file (or repo) write '""del""'\n"<<
+                "  To download a file (or repo) write '""dl""'\n"<<
+                "  To upload a file (or repo) write '""upload""'\n"<<
+                "  To create a repo write '""create""'\n"<<
+                "  To list all files/repo write '""ls""'\n"<<
+                "  To quit write '""quit""'"<<std::endl;
+        while (std::cin >> s)
         {
-            userMsg usr(s, username, pass);
-            send_user_connection(usr, sockfd);
-            close(sockfd);
-            exit(EXIT_SUCCESS);
-        }else{
-
-             //Store file
-            //Dl files
-            //delete files
-            //list files
-            //files =  repo or files
-
-
-            //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
-
-            std::string param;
-            std::string path = "./files/";
-
-            if(std::strcmp(s.c_str(),"del")==0)
+            if (s == "quit")
             {
-                std::cout<<"You're in the delete section"<<std::endl;
+                userMsg usr(s, username, pass);
+                send_user_connection(usr, sockfd);
+                close(sockfd);
+                exit(EXIT_SUCCESS);
+            }else{
 
-            // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
+                //Store file
+                //Dl files
+                //delete files
+                //list files
+                //files =  repo or files
 
-            }else if (std::strcmp(s.c_str(),"dl")==0)
-            {
-                std::cout<<"You're in the download section"<<std::endl;
 
+                //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
 
-            }else if (std::strcmp(s.c_str(),"upload")==0)
-            {
-                std::cout<<"You're in the upload section"<<std::endl;
+                // std::string path = "./files/";
+                std::string path;
 
-                std::filesystem::copy("./files/a", "./files/test", std::filesystem::copy_options::recursive);
-
-            }else if (std::strcmp(s.c_str(),"create")==0)
-            {
-                std::cout<<"You're in the create section"<<std::endl;
-                std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
-                
-                std::cin >> param;
-
-                std::string merge = path+param;
-
-                const char* tmp[]={merge.c_str()};
-                std::cout<<"path : "<<tmp<<std::endl;
-
-                if(!mkdir(*tmp,S_IRWXU))
+                if(std::strcmp(s.c_str(),"del")==0)
                 {
-                    std::cout<<"repo created"<<std::endl;
-                }else
+                    std::cout<<"You're in the delete section"<<std::endl;
+                    std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                    std::cin >> path;
+                    cmdMsg msg(s,path);
+                    send_user_command(msg,sockfd);
+                // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
+                //le server utilisera execl PAS p
+
+                }else if (std::strcmp(s.c_str(),"dl")==0)
                 {
-                    std::cout<<"Error creation repo"<<std::endl;
+                    std::cout<<"You're in the download section"<<std::endl;
+                    std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                    std::cin >> path;
+                    cmdMsg msg(s,path);
+
+
+                }else if (std::strcmp(s.c_str(),"upload")==0)
+                {
+                    std::cout<<"You're in the upload section"<<std::endl;
+
+                    // std::filesystem::copy("./files/a", "./files/test", std::filesystem::copy_options::recursive);
+
+                }else if (std::strcmp(s.c_str(),"create")==0)
+                {
+                    std::cout<<"You're in the create section"<<std::endl;
+                    std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                    
+                    std::cin >> path;
+                    cmdMsg msg(s,path);
+
+
+
+                    // std::cin >> param;
+
+                    // std::string merge = path+param;
+
+                    // const char* tmp[]={merge.c_str()};
+                    // std::cout<<"path : "<<tmp<<std::endl;
+
+                    // if(!mkdir(*tmp,S_IRWXU))
+                    // {
+                    //     std::cout<<"repo created"<<std::endl;
+                    // }else
+                    // {
+                    //     std::cout<<"Error creation repo"<<std::endl;
+                    // }
+                    
+
                 }
-                
-
-            }
-
+                std::cout<<read_from_connection(sockfd)<<std::endl;
+        }
 
 
-
-
-
-
+    }
 
         //close(sockfd);
     }else
