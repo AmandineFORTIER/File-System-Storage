@@ -214,12 +214,12 @@ int connect_to_server()
     return sockfd;
 }
 
-char read_from_connection(int sockfd)
+bool read_from_connection(int sockfd)
 {
     // Read from the connection
-    char buffer[1];
-    read(sockfd, buffer, 1);
-    return buffer[0];
+    char buffer[1024];
+    read(sockfd, buffer, 1024);
+    return buffer[0] == '1';
 }
 
 
@@ -318,7 +318,7 @@ int main()
             //     std::cout<<"You're not connected."<<std::endl;
             // }
 
-            cmd_well_finished = read_from_connection(sockfd) == '1';
+            cmd_well_finished = read_from_connection(sockfd);
             not_connected = std::strcmp(usr.get_cmd_request().c_str(),"create")==0;
 
             if (!cmd_well_finished)
@@ -336,25 +336,46 @@ int main()
             }       
 
         }while(not_connected || !cmd_well_finished);
+        
 
+        char buffer[1024];
 
-        std::cout <<" === Here are your commands as a connected user ===\n"<<
+        
+        cmdMsg msg("isAdmin");
+        send_user_command(msg,sockfd);
+        bool is_admin = read_from_connection(sockfd);
+        if (is_admin)
+        {
+            std::cout <<" === Here are your commands as a connected admin ===\n"<<
                 "  To delete a file (or repo) write '""del""'\n"<<
                 "  To download a file (or repo) write '""dl""'\n"<<
                 "  To upload a file (or repo) write '""upload""'\n"<<
                 "  To create a repo write '""create""'\n"<<
                 "  To list all files/repo write '""ls""'\n"<<
+                "  To authenticate a user write '""auth""'\n"<<
+                "  To give admin grade write '""admin""'\n"<<
                 "  To quit write '""quit""'"<<std::endl;
+        }else
+        {
+            std::cout <<" === Here are your commands as a connected user ===\n"<<
+                    "  To delete a file (or repo) write '""del""'\n"<<
+                    "  To download a file (or repo) write '""dl""'\n"<<
+                    "  To upload a file (or repo) write '""upload""'\n"<<
+                    "  To create a repo write '""create""'\n"<<
+                    "  To list all files/repo write '""ls""'\n"<<
+                    "  To quit write '""quit""'"<<std::endl;
+        }
+
+
         while (std::cin >> s)
         {
             if (s == "quit")
             {
-                userMsg usr(s, username, pass);
-                send_user_connection(usr, sockfd);
+                cmdMsg usr(s);
+                send_user_command(usr, sockfd);
                 close(sockfd);
                 exit(EXIT_SUCCESS);
             }else{
-
                 //Store file
                 //Dl files
                 //delete files
@@ -389,49 +410,33 @@ int main()
                 {
                     cmdMsg msg(s);
                     send_user_command(msg,sockfd);
-                    char buffer[1024];
                     // fdatasync(sockfd);
+                    
                     read(sockfd, buffer, 1024);
-
                     std::cout<<buffer<<std::endl;
                 }
-                // else if (std::strcmp(s.c_str(),"upload")==0)
-                // {
-                //     std::cout<<"You're in the upload section"<<std::endl;
 
-                //     // std::filesystem::copy("./files/a", "./files/test", std::filesystem::copy_options::recursive);
+                if (is_admin)
+                {
+                    if(std::strcmp(s.c_str(),"admin")==0||std::strcmp(s.c_str(),"auth")==0)
+                    {
+                        std::cout<<"======================User list======================"<<std::endl;
+                        //Afficher tout les user grade etc
+                        cmdMsg msgList("list_user");
+                        send_user_command(msgList,sockfd);
 
-                // }else if (std::strcmp(s.c_str(),"create")==0)
-                // {
-                //     std::cout<<"You're in the create section"<<std::endl;
-                //     std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
-                    
-                //     std::cin >> path;
-                //     cmdMsg msg(s,path);
+                        read(sockfd, buffer, 1024);
+                        std::cout<<buffer<<std::endl;
 
+                        std::cout<<"====================================================="<<std::endl;
 
-
-                //     // std::cin >> param;
-
-                //     // std::string merge = path+param;
-
-                //     // const char* tmp[]={merge.c_str()};
-                //     // std::cout<<"path : "<<tmp<<std::endl;
-
-                //     // if(!mkdir(*tmp,S_IRWXU))
-                //     // {
-                //     //     std::cout<<"repo created"<<std::endl;
-                //     // }else
-                //     // {
-                //     //     std::cout<<"Error creation repo"<<std::endl;
-                //     // }
-                    
-
-                // }
-                std::cout<<read_from_connection(sockfd)<<std::endl;
+                        std::cout<<"Enter the concerned user. e.g. abs : ";
+                        std::cin >> path;
+                        cmdMsg msg(s,path);
+                        send_user_command(msg,sockfd);
+                    }
+                }    
         }
-
-
     }
 
         //close(sockfd);

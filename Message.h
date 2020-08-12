@@ -34,44 +34,44 @@ struct cmdMsg
 {
     private:
         std::string cmd_request;
-        std::string pathSrc;
-        std::string pathDst;
+        std::string param1;
+        std::string param2;
     public:
-        cmdMsg(std::string cmd_request,std::string pathSrc, std::string pathDst);
-        cmdMsg(std::string cmd_request,std::string pathSrc);
+        cmdMsg(std::string cmd_request,std::string param1, std::string param2);
+        cmdMsg(std::string cmd_request,std::string param1);
         cmdMsg(std::string cmd_request);
         std::string get_cmd_request();
-        std::string get_pathSrc();
-        std::string get_pathDst();
+        std::string get_param1();
+        std::string get_param2();
         friend std::ostream& operator<< (std::ostream& out, cmdMsg& object) 
         {
-            out << object.cmd_request<<" "<< object.pathSrc << " " << object.pathDst;   //The space (" ") is necessari for separete elements
+            out << object.cmd_request<<" "<< object.param1 << " " << object.param2;   //The space (" ") is necessari for separete elements
             return out;
         }
 
         friend std::istream& operator>> (std::istream& in, cmdMsg& object) 
         {
             in >> object.cmd_request;
-            in >> object.pathSrc;
-            in >> object.pathDst;
+            in >> object.param1;
+            in >> object.param2;
             return in;
         }
 };
 
 cmdMsg::cmdMsg(std::string cmd_request):cmdMsg(cmd_request,"",""){}
-cmdMsg::cmdMsg(std::string cmd_request, std::string pathSrc):cmdMsg(cmd_request,pathSrc,""){}
-cmdMsg::cmdMsg(std::string cmd_request, std::string pathSrc, std::string pathDst):cmd_request(cmd_request),pathSrc(pathSrc), pathDst(pathDst){}
+cmdMsg::cmdMsg(std::string cmd_request, std::string param1):cmdMsg(cmd_request,param1,""){}
+cmdMsg::cmdMsg(std::string cmd_request, std::string param1, std::string param2):cmd_request(cmd_request),param1(param1), param2(param2){}
 std::string cmdMsg::get_cmd_request()
 {
     return this->cmd_request;
 }
-std::string cmdMsg::get_pathSrc()
+std::string cmdMsg::get_param1()
 {
-    return this->pathSrc;
+    return this->param1;
 }
-std::string cmdMsg::get_pathDst()
+std::string cmdMsg::get_param2()
 {
-    return this->pathDst;
+    return this->param2;
 }
 
 // user::user(char (&password)[72]):user("",password){}

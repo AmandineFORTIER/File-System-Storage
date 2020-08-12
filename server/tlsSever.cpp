@@ -169,7 +169,21 @@ bool BASIC_CLIENT_SERVER = true;
 //    return cert;
 // }
 
-
+static int callback(void *data, int argc, char **argv, char **azColName){
+   int i;
+//    fprintf(stderr, "%s: ", (const char*)data);
+//    std::string test="";
+   for(i = 0; i<argc; i++){
+      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    //   test += azColName[i];
+    //   test += " = ";
+    //   test+= (argv[i] ? argv[i] : "NULL");
+   }
+//    test+="\n";
+   
+   printf("\n");
+   return 0;
+}
 
 void threadClient(sockaddr_in sockaddr,int connection)
 {
@@ -432,36 +446,140 @@ void threadClient(sockaddr_in sockaddr,int connection)
         std::stringstream ss;
         char buffer[sizeof(connected_cmd)];
         std::string tempp;
+        do
+        {   
+            read(connection, buffer, sizeof(connected_cmd));  //receive
+            tempp.assign(buffer); 
+            ss << tempp;
+            ss >> connected_cmd;   //unserialize
 
-        read(connection, buffer, sizeof(connected_cmd));  //receive
-        tempp.assign(buffer); 
-        ss << tempp;
-        ss >> connected_cmd;   //unserialize
+            memset(buffer, 0, sizeof(connected_cmd));
+            ss.clear();
 
-        memset(buffer, 0, sizeof(connected_cmd));
-        ss.clear();
-
-
-        std::cout<<connected_cmd.get_cmd_request().c_str()<<std::endl;
-        
-        if (strcmp(connected_cmd.get_cmd_request().c_str(),"quit")==0)
-        {
-            
-        }else{
-
-            //Store file
-            //Dl files
-            //delete files
-            //files =  repo or files
-
-
-            //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
-
-            std::string path = connected_cmd.get_pathSrc();
+            std::string path = connected_cmd.get_param1();
             std::string origin_path = "./files/";
             std::string tmp(origin_path+path);
 
-            if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
+            if (strcmp(connected_cmd.get_cmd_request().c_str(),"quit")==0)
+            {
+                break;
+                
+            }else if(strcmp(connected_cmd.get_cmd_request().c_str(),"isAdmin")==0)
+            {
+                sqlite3 *db;
+                sqlite3_stmt* stmt;
+                char *zErrMsg = 0;
+                int rc = sqlite3_open("../database/users.db",&db);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+
+                char sql[] = "SELECT grade FROM user WHERE username = ?";
+                rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+                rc = sqlite3_bind_blob(stmt, 1, usr.get_username().c_str(),usr.get_username().length(),NULL);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+
+                const char* isAdmin="";
+
+                if ( (rc = sqlite3_step(stmt)) == SQLITE_ROW) 
+                {
+                    const unsigned char* grade = sqlite3_column_text(stmt, 0);
+                    const std::string temp_grade = reinterpret_cast<const char *>(grade);
+                    isAdmin = (strcmp(temp_grade.c_str(),"Admin")==0)?"1":"0";
+                }
+                
+                rc = sqlite3_clear_bindings(stmt);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_reset(stmt);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_finalize(stmt);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_close(db);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+                write(connection, isAdmin, sizeof(isAdmin));
+
+            }else if(strcmp(connected_cmd.get_cmd_request().c_str(),"list_user")==0)
+            {
+                sqlite3 *db;
+                sqlite3_stmt* stmt;
+                char *zErrMsg = 0;
+                int rc = sqlite3_open("../database/users.db",&db);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+
+                char sql[] = "SELECT username, grade, isAuthenticated FROM user";
+                rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+            
+              
+                std::string answer = "Username\tGrade \t is authenticated ?\n------------------------------------------------\n";
+                while(sqlite3_step(stmt) == SQLITE_ROW) 
+                {
+                    int column = sqlite3_column_count(stmt);
+
+                    for(int i = 0; i < column; i++)
+                    {
+                        answer += (std::string((const char *) sqlite3_column_text(stmt, i))) + "\t\t";
+                    }
+                    answer+="\n";
+                }
+                // std::cout<<answer<<std::endl;
+
+                rc = sqlite3_clear_bindings(stmt);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_reset(stmt);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_finalize(stmt);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_close(db);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+                write(connection, answer.c_str(), answer.length());
+            
+            }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
             {
                 std::cout<<"You're in the delete section"<<std::endl;
                 std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
@@ -495,18 +613,10 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 }
                 // fdatasync(connection);
                 write(connection, ls_output.c_str(), ls_output.length());
-
-                
             }
-            
-        }
-        
-
-
-
-
+                
+        } while (1);
     }
-    
 
     std::cout<<"Disconnected"<<std::endl;
     close(connection);
