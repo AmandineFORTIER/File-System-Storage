@@ -27,7 +27,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include <dirent.h>
 
 #include <cstdlib>
 #include <iostream>
@@ -239,7 +239,7 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 exit(1);
             }
 
-            char sql[] = "INSERT INTO user(username, password, grade) VALUES (?, ?, ?)";
+            char sql[] = "INSERT INTO user(username, password, grade, isAuthenticated) VALUES (?, ?, ?, ?)";
             rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
             if (rc != SQLITE_OK) 
             {
@@ -265,6 +265,14 @@ void threadClient(sockaddr_in sockaddr,int connection)
             }
 
             rc = sqlite3_bind_text(stmt, 3, grade.c_str() ,sizeof(grade),NULL);
+            if(rc != SQLITE_OK) 
+            {
+                fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+                sqlite3_close(db);
+                exit(1);
+            }
+            int isAuthenticated = 0;
+            rc = sqlite3_bind_int(stmt, 4, isAuthenticated);
             if(rc != SQLITE_OK) 
             {
                 fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
@@ -461,19 +469,34 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 std::filesystem::remove_all(tmp.c_str());
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"create")==0)
             {
-                if(!mkdir(tmp.c_str(),0777))
-                {
-                    std::cout<<"repo created"<<std::endl;
-                }else
-                {
-                    std::cout<<"Error creation repo"<<std::endl;
-                }
+                std::filesystem::create_directories(tmp);
+                std::filesystem::permissions(tmp, std::filesystem::perms::all, std::filesystem::perm_options::replace);
+                
+                // if(!mkdir(tmp.c_str(),0777))
+                // {
+                //     std::cout<<"repo created"<<std::endl;
+                // }else
+                // {
+                //     std::cout<<"Error creation repo"<<std::endl;
+                // }
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"dl")==0)
             {
                 /* code */
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"upload")==0)
             {
                 /* code */
+            }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"ls")==0)
+            {
+                std::string ls_output;
+                for (const auto & entry : std::filesystem::recursive_directory_iterator(tmp))
+                {
+                    ls_output += entry.path().c_str();
+                    ls_output +="\n";
+                }
+                // fdatasync(connection);
+                write(connection, ls_output.c_str(), ls_output.length());
+
+                
             }
             
         }
@@ -547,6 +570,7 @@ int create_socket(int port)
         exit(EXIT_FAILURE);
     }
 
+
     return s;
 }
 
@@ -608,6 +632,8 @@ int main()
                 close(connection);
                 exit(EXIT_FAILURE);
             }
+            // fsync(connection);
+
 
             std::thread test(threadClient,sockaddr,connection);
             test.detach();

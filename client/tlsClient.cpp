@@ -217,8 +217,8 @@ int connect_to_server()
 char read_from_connection(int sockfd)
 {
     // Read from the connection
-    char buffer[1024];
-    read(sockfd, buffer, 1024);
+    char buffer[1];
+    read(sockfd, buffer, 1);
     return buffer[0];
 }
 
@@ -254,7 +254,7 @@ int main()
     sockaddr.sin_port = htons(9999); // htons is necessary to convert a number to
     sockaddr.sin_addr.s_addr = INADDR_ANY;
                                     // network byte order
-        int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
     {
@@ -267,6 +267,7 @@ int main()
         std::cout << "Failed to connect to port 9999. errno: " << errno << std::endl;
         exit(EXIT_FAILURE);
     }
+    // fsync(sockfd);
     if(BASIC_CLIENT_SERVER)
     {
         // read data received from the tls server, e.g., using BSD sockets or boost asio
@@ -384,6 +385,15 @@ int main()
                     std::cin >> dst;
                     cmdMsg msg(s,path,dst);
                     send_user_command(msg,sockfd);
+                }else if (std::strcmp(s.c_str(),"ls")==0)
+                {
+                    cmdMsg msg(s);
+                    send_user_command(msg,sockfd);
+                    char buffer[1024];
+                    // fdatasync(sockfd);
+                    read(sockfd, buffer, 1024);
+
+                    std::cout<<buffer<<std::endl;
                 }
                 // else if (std::strcmp(s.c_str(),"upload")==0)
                 // {
