@@ -5,10 +5,7 @@
 #include <botan-2/botan/auto_rng.h>
 #include <botan-2/botan/certstor.h>
 #include <botan-2/botan/certstor_system.h>
-
-
 #include "../Message.h"
-
 #include <sstream>
 #include <sys/socket.h> // For socket functions
 #include <netinet/in.h> // For sockaddr_in
@@ -19,137 +16,129 @@
 #include <string.h>
 #include <cstring>
 #include <termios.h>
-
 #include <string>
 #include <queue>
 
-/**
- * @brief Callbacks invoked by TLS::Channel.
- *
- * Botan::TLS::Callbacks is an abstract class.
- * For improved readability, only the functions that are mandatory
- * to implement are listed here. See src/lib/tls/tls_callbacks.h.
- */
-class Callbacks : public Botan::TLS::Callbacks
-{
-   public:
-        Callbacks(int socket):socket(socket)
-        {
+// /**
+//  * @brief Callbacks invoked by TLS::Channel.
+//  *
+//  * Botan::TLS::Callbacks is an abstract class.
+//  * For improved readability, only the functions that are mandatory
+//  * to implement are listed here. See src/lib/tls/tls_callbacks.h.
+//  */
+// class Callbacks : public Botan::TLS::Callbacks
+// {
+//    public:
+//         Callbacks(int socket):socket(socket)
+//         {
             
-        }
-      void tls_emit_data(const uint8_t data[], size_t size) override
-        {   
-            if (!this->channel || !this->channel->is_active())
-            {
-                // Handshake in progress
-                this->write_socket(data, size);
-            }
-            else
-            {
-                // Just collect the data and deal with it later in write_socket()
-                this->pending_send.emplace(data, data + size);
-            }
+//         }
+//       void tls_emit_data(const uint8_t data[], size_t size) override
+//         {   
+//             if (!this->channel || !this->channel->is_active())
+//             {
+//                 // Handshake in progress
+//                 this->write_socket(data, size);
+//             }
+//             else
+//             {
+//                 // Just collect the data and deal with it later in write_socket()
+//                 this->pending_send.emplace(data, data + size);
+//             }
          
-        }
+//         }
         
-      void tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size) override
-         {
-         // process full TLS record received by tls server, e.g.,
-         // by passing it to the application
-         }
+//       void tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size) override
+//          {
+//          // process full TLS record received by tls server, e.g.,
+//          // by passing it to the application
+//          }
 
-      void tls_alert(Botan::TLS::Alert alert) override
-         {
-         // handle a tls alert received from the tls server
-         }
+//       void tls_alert(Botan::TLS::Alert alert) override
+//          {
+//          // handle a tls alert received from the tls server
+//          }
 
-      bool tls_session_established(const Botan::TLS::Session& session) override
-         {
-         // the session with the tls server was established
-         // return false to prevent the session from being cached, true to
-         // cache the session in the configured session manager
-         return false;
-         }
-    private:
-        std::unique_ptr<Botan::TLS::Channel> channel;
-        int socket;
-        std::queue<std::vector<uint8_t>> pending_send;
-        ssize_t write_socket(const uint8_t* buffer, size_t size)
-        {
-            ssize_t bytes_written = send(this->socket, buffer, size, MSG_NOSIGNAL);
+//       bool tls_session_established(const Botan::TLS::Session& session) override
+//          {
+//          // the session with the tls server was established
+//          // return false to prevent the session from being cached, true to
+//          // cache the session in the configured session manager
+//          return false;
+//          }
+//     private:
+//         std::unique_ptr<Botan::TLS::Channel> channel;
+//         int socket;
+//         std::queue<std::vector<uint8_t>> pending_send;
+//         ssize_t write_socket(const uint8_t* buffer, size_t size)
+//         {
+//             ssize_t bytes_written = send(this->socket, buffer, size, MSG_NOSIGNAL);
                 
-            if (bytes_written < 0)
-            {
-                std::cout << "tls_socket::write_socket: Error: " << std::strerror(errno) << std::endl;
-            }
+//             if (bytes_written < 0)
+//             {
+//                 std::cout << "tls_socket::write_socket: Error: " << std::strerror(errno) << std::endl;
+//             }
 
-            return bytes_written;
-        }
-};
+//             return bytes_written;
+//         }
+// };
 
-/**
- * @brief Credentials storage for the tls client.
- *
- * It returns a list of trusted CA certificates from a local directory.
- * TLS client authentication is disabled. See src/lib/tls/credentials_manager.h.
- */
-class Client_Credentials : public Botan::Credentials_Manager
-   {
-   public:
-      Client_Credentials()
-        {
-         // Here we base trust on the system managed trusted CA list
-            try
-            {
-                const std::vector<std::string> paths =
-                    {
-                        "/etc/ssl/certs",
-                        "/usr/share/ca-certificates",
-                        "./certs"
-                    };
+// /**
+//  * @brief Credentials storage for the tls client.
+//  *
+//  * It returns a list of trusted CA certificates from a local directory.
+//  * TLS client authentication is disabled. See src/lib/tls/credentials_manager.h.
+//  */
+// class Client_Credentials : public Botan::Credentials_Manager
+//    {
+//    public:
+//       Client_Credentials()
+//         {
+//          // Here we base trust on the system managed trusted CA list
+//             try
+//             {
+//                 const std::vector<std::string> paths =
+//                     {
+//                         "/etc/ssl/certs",
+//                         "/usr/share/ca-certificates",
+//                         "./certs"
+//                     };
                 
-                for (auto const& path : paths)
-                {
-                    auto cs = std::make_shared<Botan::Certificate_Store_In_Memory>(path);
-                    this->m_stores.push_back(cs);
-                }
-            }
-            catch (std::exception&)
-            {
-            }
-        }
+//                 for (auto const& path : paths)
+//                 {
+//                     auto cs = std::make_shared<Botan::Certificate_Store_In_Memory>(path);
+//                     this->m_stores.push_back(cs);
+//                 }
+//             }
+//             catch (std::exception&)
+//             {
+//             }
+//         }
 
-      std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(
-         const std::string& type,
-         const std::string& context) override
-         {
-            std::vector<Botan::Certificate_Store*> v;
+//       std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(
+//          const std::string& type,
+//          const std::string& context) override
+//          {
+//             std::vector<Botan::Certificate_Store*> v;
             
-            // don't ask for client certs
-            if (type == "tls-server")
-            {
-                return v;
-            }
+//             // don't ask for client certs
+//             if (type == "tls-server")
+//             {
+//                 return v;
+//             }
             
-            for (auto const& cs : this->m_stores)
-            {
-                v.push_back(cs.get());
-            }
+//             for (auto const& cs : this->m_stores)
+//             {
+//                 v.push_back(cs.get());
+//             }
             
-            return v;
-    }
+//             return v;
+//     }
 
-   private:
-        Botan::AutoSeeded_RNG rng;
-        std::vector<std::shared_ptr<Botan::Certificate_Store>> m_stores;
-};
-
-
-
-
-
-
-
+//    private:
+//         Botan::AutoSeeded_RNG rng;
+//         std::vector<std::shared_ptr<Botan::Certificate_Store>> m_stores;
+// };
 
 std::string ask_username()
 {
@@ -162,10 +151,6 @@ std::string ask_username()
 void ask_password(char password[72])
 {
     std::cout<<"Password : ";
-
-    /* ignore signals */
-	//signal(SIGINT, SIG_IGN);
-	//signal(SIGTERM, SIG_IGN);
     
 	/* no echo */
 	struct termios term;
@@ -173,11 +158,8 @@ void ask_password(char password[72])
 	term.c_lflag &= ~ECHO;
 	tcsetattr(1, TCSANOW, &term);
 
-
-    //char pass[72];
     std::cin>>password;
     std::cin.clear();
-
     
 	/* reset the term */
 	term.c_lflag |= ECHO;
@@ -186,9 +168,7 @@ void ask_password(char password[72])
     std::cin.clear();
     std::cout.clear();
     std::cout<<std::endl;
-
 }
-
 
 int connect_to_server()
 {
@@ -222,24 +202,12 @@ bool read_from_connection(int sockfd)
     return buffer[0] == '1';
 }
 
-
-
-
-
-void send_user_connection(userMsg usr, int sockfd)
+template <typename T>
+void serialize_message(T& msg, int sockfd)
 {
     std::stringstream ss;
-    ss << usr;    //serialize
-    write (sockfd, ss.str().c_str(), sizeof(usr)); 
-    ss.clear();
-}
-
-
-void send_user_command(cmdMsg cmd, int sockfd)
-{
-    std::stringstream ss;
-    ss << cmd;    //serialize
-    write (sockfd, ss.str().c_str(), sizeof(cmd)); 
+    ss << msg;    //serialize
+    write (sockfd, ss.str().c_str(), sizeof(msg)); 
     ss.clear();
 }
 
@@ -248,33 +216,9 @@ int main()
 {
     bool BASIC_CLIENT_SERVER = true;
    
-    
-    sockaddr_in sockaddr; 
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port = htons(9999); // htons is necessary to convert a number to
-    sockaddr.sin_addr.s_addr = INADDR_ANY;
-                                    // network byte order
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (sockfd < 0)
-    {
-        std::cout << "Failed to create socket. errno: " << errno << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    if (connect(sockfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
-    {
-        std::cout << "Failed to connect to port 9999. errno: " << errno << std::endl;
-        exit(EXIT_FAILURE);
-    }
     // fsync(sockfd);
     if(BASIC_CLIENT_SERVER)
     {
-        // read data received from the tls server, e.g., using BSD sockets or boost asio
-        // ...
-
-        // send data to the tls server using client.send_data()
-
         int sockfd=connect_to_server();;
         std::string username;
         char pass[72];
@@ -287,16 +231,14 @@ int main()
                         "  To connect yourself write '""connect""'\n"<<
                         "  To quit write '""quit""'"<<std::endl;
             
-
             while (std::cin >> s)
             {
                 if (std::strcmp(s.c_str(),"quit")==0)
                 {
-                    userMsg usr(s, username, pass);
-                    send_user_connection(usr, sockfd);
+                    Message::userMsg usr(s, username, pass);
+                    serialize_message<Message::userMsg>(usr,sockfd);
                     close(sockfd);
                     exit(EXIT_SUCCESS);
-                    break;
                 }else if (std::strcmp(s.c_str(),"create")==0 || std::strcmp(s.c_str(),"connect")==0)
                 {
                     break;
@@ -306,18 +248,10 @@ int main()
             
             username = ask_username();
             ask_password(pass);
-            userMsg usr(s, username,pass);
+            Message::userMsg usr(s, username,pass);
             username.clear();
-
-            send_user_connection(usr, sockfd);
-            
-
-
-            // if (not_connected = ((read_from_connection(sockfd) == '0')||(strcmp(s.c_str(),"create")==0)))
-            // {
-            //     std::cout<<"You're not connected."<<std::endl;
-            // }
-
+            serialize_message<Message::userMsg>(usr,sockfd);
+        
             cmd_well_finished = read_from_connection(sockfd);
             not_connected = std::strcmp(usr.get_cmd_request().c_str(),"create")==0;
 
@@ -334,16 +268,12 @@ int main()
                     std::cout<<"Undefined error"<<std::endl;
                 }
             }       
-
         }while(not_connected || !cmd_well_finished);
         
-
-        char buffer[1024];
-
-        
-        cmdMsg msg("isAdmin");
-        send_user_command(msg,sockfd);
+        Message::cmdMsg msg("isAdmin");
+        serialize_message<Message::cmdMsg>(msg,sockfd);
         bool is_admin = read_from_connection(sockfd);
+
         if (is_admin)
         {
             std::cout <<" === Here are your commands as a connected admin ===\n"<<
@@ -366,34 +296,25 @@ int main()
                     "  To quit write '""quit""'"<<std::endl;
         }
 
-
         while (std::cin >> s)
         {
+            char buffer[1024];
             if (s == "quit")
             {
-                cmdMsg usr(s);
-                send_user_command(usr, sockfd);
+                Message::cmdMsg usr(s);
+                serialize_message<Message::cmdMsg>(usr,sockfd);
                 close(sockfd);
                 exit(EXIT_SUCCESS);
             }else{
-                //Store file
-                //Dl files
-                //delete files
-                //list files
-                //files =  repo or files
 
-
-                //un ls de tout les dossier ou le user est proprio ou a les droit ecriture ==> jsp quoi pour le droit de lecture
-
-                // std::string path = "./files/";
                 std::string path;
-
                 if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"dl")==0||std::strcmp(s.c_str(),"create")==0)
                 {
                     std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
                     std::cin >> path;
-                    cmdMsg msg(s,path);
-                    send_user_command(msg,sockfd);
+                    Message::cmdMsg msg(s,path);
+                    serialize_message<Message::cmdMsg>(msg,sockfd);
+
                 // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
                 //le server utilisera execl PAS p
 
@@ -404,14 +325,14 @@ int main()
                     std::string dst;
                     std::cout<<"Enter the path on server side. e.g. path/myDirectory : ";
                     std::cin >> dst;
-                    cmdMsg msg(s,path,dst);
-                    send_user_command(msg,sockfd);
+                    Message::cmdMsg msg(s,path,dst);
+                    serialize_message<Message::cmdMsg>(msg,sockfd);
                 }else if (std::strcmp(s.c_str(),"ls")==0)
                 {
-                    cmdMsg msg(s);
-                    send_user_command(msg,sockfd);
+                    Message::cmdMsg msg(s);
+                    serialize_message<Message::cmdMsg>(msg,sockfd);
+
                     // fdatasync(sockfd);
-                    
                     read(sockfd, buffer, 1024);
                     std::cout<<buffer<<std::endl;
                 }
@@ -421,19 +342,17 @@ int main()
                     if(std::strcmp(s.c_str(),"admin")==0||std::strcmp(s.c_str(),"auth")==0)
                     {
                         std::cout<<"======================User list======================"<<std::endl;
-                        //Afficher tout les user grade etc
-                        cmdMsg msgList("list_user");
-                        send_user_command(msgList,sockfd);
+                        Message::cmdMsg msgList("list_user");
+                        serialize_message<Message::cmdMsg>(msgList,sockfd);
 
                         read(sockfd, buffer, 1024);
                         std::cout<<buffer<<std::endl;
-
                         std::cout<<"====================================================="<<std::endl;
 
                         std::cout<<"Enter the concerned user. e.g. abs : ";
                         std::cin >> path;
-                        cmdMsg msg(s,path);
-                        send_user_command(msg,sockfd);
+                        Message::cmdMsg msg(s,path);
+                        serialize_message<Message::cmdMsg>(msg,sockfd);
                     }
                 }    
         }
@@ -442,19 +361,19 @@ int main()
         //close(sockfd);
     }else
     {
-        // prepare all the parameters
-        Callbacks callbacks(sockfd);
-        Botan::TLS::Session_Manager_In_Memory session_mgr(Botan::system_rng());
-        Client_Credentials creds;
-        Botan::TLS::Strict_Policy policy;
+        // // prepare all the parameters
+        // Callbacks callbacks(sockfd);
+        // Botan::TLS::Session_Manager_In_Memory session_mgr(Botan::system_rng());
+        // Client_Credentials creds;
+        // Botan::TLS::Strict_Policy policy;
 
-        // open the tls connection
-        Botan::TLS::Client client(callbacks,
-                                    session_mgr,
-                                    creds,
-                                    policy,
-                                    Botan::system_rng(),
-                                    Botan::TLS::Server_Information("", 9999),
-                                    Botan::TLS::Protocol_Version::TLS_V12);
+        // // open the tls connection
+        // Botan::TLS::Client client(callbacks,
+        //                             session_mgr,
+        //                             creds,
+        //                             policy,
+        //                             Botan::system_rng(),
+        //                             Botan::TLS::Server_Information("", 9999),
+        //                             Botan::TLS::Protocol_Version::TLS_V12);
     }
 }

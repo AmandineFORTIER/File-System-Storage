@@ -1,12 +1,7 @@
-// #include <iostream> // For cout
-
 #include <memory>
-
 #include <sqlite3.h>
-
 #include "../Message.h"
 #include <sstream>
-
 #include <arpa/inet.h>
 #include <sys/socket.h> // For socket functions
 #include <netinet/in.h> // For sockaddr_in
@@ -16,24 +11,16 @@
 #include <errno.h>
 #include <cstring>
 #include <thread>
-
 #include <unistd.h>
-
 #include <sys/wait.h>
 #include <filesystem>
-
 #include <botan-2/botan/bcrypt.h>
 #include <botan-2/botan/botan.h>
-
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
-
 #include <cstdlib>
 #include <iostream>
-
-bool BASIC_CLIENT_SERVER = true;
-
 
 // /**
 //  * @brief Callbacks invoked by TLS::Channel.
@@ -169,90 +156,72 @@ bool BASIC_CLIENT_SERVER = true;
 //    return cert;
 // }
 
-static int callback(void *data, int argc, char **argv, char **azColName){
-   int i;
-//    fprintf(stderr, "%s: ", (const char*)data);
-//    std::string test="";
-   for(i = 0; i<argc; i++){
-      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    //   test += azColName[i];
-    //   test += " = ";
-    //   test+= (argv[i] ? argv[i] : "NULL");
-   }
-//    test+="\n";
-   
-   printf("\n");
-   return 0;
+bool BASIC_CLIENT_SERVER = true;
+//def port number, nb max connection, ...
+
+template <typename T>
+void unserialize_message(T& msg, int connection)
+{
+    char buffer[sizeof(msg)];
+    std::string temp;
+    std::stringstream ss;
+
+    read(connection, buffer, sizeof(msg)); 
+    temp.assign(buffer); 
+    ss << temp;
+    ss >> msg;
+    ss.clear();
 }
 
-void threadClient(sockaddr_in sockaddr,int connection)
+void finalize_query(sqlite3_stmt* stmt, sqlite3 *db)
 {
-    /*
-    // Send a message to the connection
-    std::string response = "Good talking to you\n";
-    write(connection, response.c_str(), response.size());
-
-    // Read from the connection
-    char buffer[100];
-    while (read(connection, buffer, 100)>0)
-    {
-        std::cout << "The message was: " << buffer;
+    int rc = sqlite3_clear_bindings(stmt);
+    if(rc != SQLITE_OK) {
+        fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
     }
-    */
+
+    rc = sqlite3_reset(stmt);
+    if(rc != SQLITE_OK) {
+        fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+    }
+
+    rc = sqlite3_finalize(stmt);
+    if(rc != SQLITE_OK) {
+        fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+    }
+}
+
+void client_command(sockaddr_in sockaddr,int connection)
+{
+    sqlite3 *db;
+    sqlite3_stmt* stmt;
+    char *zErrMsg = 0;
+    int rc = sqlite3_open("../database/users.db",&db);
+    if (rc != SQLITE_OK) 
+    {
+        fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        exit(1);
+    }
+
+
     bool quit = false;
-    char t[72]{};
-    std::string cmd;
-    std::string user;
-    userMsg usr(cmd,user,t);
-    std::stringstream ss;
-    char buffer[sizeof(usr)];
-    std::string temp;
     bool connected = false;
+    char pass[72]{};
+    Message::userMsg usr("","",pass);
     do
     {
-        cmd.clear();
-        user.clear();
-        ss.clear();
-        memset(buffer, 0, sizeof(usr));
-        temp.clear();
-        read(connection, buffer, sizeof(usr));  //receive
-        temp.assign(buffer); 
-        ss << temp;
-        ss >> usr;   //unserialize
-
-        memset(buffer, 0, sizeof(usr));
-        ss.clear();
-
-
-        // std::cout<<usr.get_cmd_request()<<std::endl;
-        // std::cout<<usr.get_username()<<std::endl;
-        // std::cout<<usr.get_password()<<std::endl;
-
-        
-
+        unserialize_message<Message::userMsg>(usr,connection);
+       
         bool well_terminated = false;
         if ((strcmp(usr.get_cmd_request().c_str(),"quit")==0))
         {
             break;
-        }
-        
-        
-        if (strcmp(usr.get_cmd_request().c_str(),"create")==0)
+        }else if (strcmp(usr.get_cmd_request().c_str(),"create")==0)
         {
             Botan::AutoSeeded_RNG rng;
             auto hash = Botan::generate_bcrypt(usr.get_password(), rng, 12);            
             
-            sqlite3 *db;
-            sqlite3_stmt* stmt;
-            char *zErrMsg = 0;
-            int rc = sqlite3_open("../database/users.db",&db);
-            if (rc != SQLITE_OK) 
-            {
-                fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
-                sqlite3_close(db);
-                exit(1);
-            }
-
             char sql[] = "INSERT INTO user(username, password, grade, isAuthenticated) VALUES (?, ?, ?, ?)";
             rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
             if (rc != SQLITE_OK) 
@@ -303,29 +272,9 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 well_terminated=true;
             }
 
-            rc = sqlite3_clear_bindings(stmt);
-            if(rc != SQLITE_OK) 
-            {
-                fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            rc = sqlite3_reset(stmt);
-            if(rc != SQLITE_OK) 
-            {
-                fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            rc = sqlite3_finalize(stmt);
-            if(rc != SQLITE_OK) 
-            {
-                fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            rc = sqlite3_close(db);
-            if(rc != SQLITE_OK) 
-            {
-                fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
+            finalize_query(stmt,db);
+            std::string reponse = well_terminated?"1":"0"; 
+            write(connection, reponse.c_str(), reponse.length());
 
             //creation du user unix execl pas p
             // std::string group = (strcmp(grade.c_str(),"User")==0)?"FileStorageUser":"FileStorageAdmin";
@@ -365,25 +314,8 @@ void threadClient(sockaddr_in sockaddr,int connection)
             // }
             // wait(0);
 
-
-
-            // Send a message to the connection.
-            std::string reponse = well_terminated?"1":"0"; 
-            write(connection, reponse.c_str(), reponse.length());
-
         }else if(strcmp(usr.get_cmd_request().c_str(),"connect")==0)
         {
-            sqlite3 *db;
-            sqlite3_stmt* stmt;
-            char *zErrMsg = 0;
-            int rc = sqlite3_open("../database/users.db",&db);
-            if (rc != SQLITE_OK) 
-            {
-                fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
-                sqlite3_close(db);
-                exit(1);
-            }
-
             char sql[] = "SELECT username, password FROM user WHERE username = ?";
             rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
             if (rc != SQLITE_OK) 
@@ -392,6 +324,7 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 sqlite3_close(db);
                 exit(1);
             }
+            
             rc = sqlite3_bind_blob(stmt, 1, usr.get_username().c_str(),usr.get_username().length(),NULL);
             if(rc != SQLITE_OK) {
                 fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
@@ -400,7 +333,6 @@ void threadClient(sockaddr_in sockaddr,int connection)
             }
 
             std::string username="";
-
             if ( (rc = sqlite3_step(stmt)) == SQLITE_ROW) 
             {
                 const unsigned char* name = sqlite3_column_text(stmt, 0);
@@ -411,27 +343,7 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 well_terminated=Botan::check_bcrypt(usr.get_password(),h);
             }
             
-            rc = sqlite3_clear_bindings(stmt);
-            if(rc != SQLITE_OK) {
-                fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            rc = sqlite3_reset(stmt);
-            if(rc != SQLITE_OK) {
-                fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            rc = sqlite3_finalize(stmt);
-            if(rc != SQLITE_OK) {
-                fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            rc = sqlite3_close(db);
-            if(rc != SQLITE_OK) {
-                fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-            }
-
-            // Send a message to the connection.
+           finalize_query(stmt, db);
             std::string reponse = well_terminated?"1":"0"; 
             write(connection, reponse.c_str(), reponse.length());
             connected = well_terminated;
@@ -441,20 +353,10 @@ void threadClient(sockaddr_in sockaddr,int connection)
 
     if (connected)
     {
-        std::string com="";
-        cmdMsg connected_cmd(com);
-        std::stringstream ss;
-        char buffer[sizeof(connected_cmd)];
-        std::string tempp;
+        Message::cmdMsg connected_cmd("");
         do
         {   
-            read(connection, buffer, sizeof(connected_cmd));  //receive
-            tempp.assign(buffer); 
-            ss << tempp;
-            ss >> connected_cmd;   //unserialize
-
-            memset(buffer, 0, sizeof(connected_cmd));
-            ss.clear();
+            unserialize_message<Message::cmdMsg>(connected_cmd,connection);
 
             std::string path = connected_cmd.get_param1();
             std::string origin_path = "./files/";
@@ -466,17 +368,6 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 
             }else if(strcmp(connected_cmd.get_cmd_request().c_str(),"isAdmin")==0)
             {
-                sqlite3 *db;
-                sqlite3_stmt* stmt;
-                char *zErrMsg = 0;
-                int rc = sqlite3_open("../database/users.db",&db);
-                if (rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
-                    sqlite3_close(db);
-                    exit(1);
-                }
-
                 char sql[] = "SELECT grade FROM user WHERE username = ?";
                 rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
                 if (rc != SQLITE_OK) 
@@ -493,7 +384,6 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 }
 
                 const char* isAdmin="";
-
                 if ( (rc = sqlite3_step(stmt)) == SQLITE_ROW) 
                 {
                     const unsigned char* grade = sqlite3_column_text(stmt, 0);
@@ -501,40 +391,10 @@ void threadClient(sockaddr_in sockaddr,int connection)
                     isAdmin = (strcmp(temp_grade.c_str(),"Admin")==0)?"1":"0";
                 }
                 
-                rc = sqlite3_clear_bindings(stmt);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_reset(stmt);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_finalize(stmt);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_close(db);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
+                finalize_query(stmt, db);
                 write(connection, isAdmin, sizeof(isAdmin));
-
             }else if(strcmp(connected_cmd.get_cmd_request().c_str(),"list_user")==0)
             {
-                sqlite3 *db;
-                sqlite3_stmt* stmt;
-                char *zErrMsg = 0;
-                int rc = sqlite3_open("../database/users.db",&db);
-                if (rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
-                    sqlite3_close(db);
-                    exit(1);
-                }
-
                 char sql[] = "SELECT username, grade, isAuthenticated FROM user";
                 rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
                 if (rc != SQLITE_OK) 
@@ -544,7 +404,6 @@ void threadClient(sockaddr_in sockaddr,int connection)
                     exit(1);
                 }
             
-              
                 std::string answer = "Username\tGrade \t is authenticated ?\n------------------------------------------------\n";
                 while(sqlite3_step(stmt) == SQLITE_ROW) 
                 {
@@ -556,42 +415,11 @@ void threadClient(sockaddr_in sockaddr,int connection)
                     }
                     answer+="\n";
                 }
-                // std::cout<<answer<<std::endl;
 
-                rc = sqlite3_clear_bindings(stmt);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_reset(stmt);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_finalize(stmt);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_close(db);
-                if(rc != SQLITE_OK) {
-                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
+               finalize_query(stmt, db);
                 write(connection, answer.c_str(), answer.length());
-            
             }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"auth")==0)
             {
-                sqlite3 *db;
-                sqlite3_stmt* stmt;
-                char *zErrMsg = 0;
-                int rc = sqlite3_open("../database/users.db",&db);
-                if (rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
-                    sqlite3_close(db);
-                    exit(1);
-                }
-
                 char sql[] = "UPDATE user SET isAuthenticated = 1 WHERE username = ?";
                 rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
                 if (rc != SQLITE_OK) 
@@ -614,46 +442,10 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 } else {
                     printf("update completed\n\n");
                 }
-
-                rc = sqlite3_clear_bindings(stmt);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_reset(stmt);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_finalize(stmt);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_close(db);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
+                finalize_query(stmt, db);
 
             }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"admin")==0)
             {
-
-                sqlite3 *db;
-                sqlite3_stmt* stmt;
-                char *zErrMsg = 0;
-                int rc = sqlite3_open("../database/users.db",&db);
-                if (rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
-                    sqlite3_close(db);
-                    exit(1);
-                }
-
                 char sql[] = "UPDATE user SET grade = 'Admin' WHERE username = ?";
                 rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
                 if (rc != SQLITE_OK) 
@@ -677,30 +469,7 @@ void threadClient(sockaddr_in sockaddr,int connection)
                     printf("update completed\n\n");
                 }
 
-                rc = sqlite3_clear_bindings(stmt);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_reset(stmt);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_finalize(stmt);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
-                rc = sqlite3_close(db);
-                if(rc != SQLITE_OK) 
-                {
-                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                }
-
+                finalize_query(stmt, db);
 
             }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
             {
@@ -712,14 +481,7 @@ void threadClient(sockaddr_in sockaddr,int connection)
             {
                 std::filesystem::create_directories(tmp);
                 std::filesystem::permissions(tmp, std::filesystem::perms::all, std::filesystem::perm_options::replace);
-                
-                // if(!mkdir(tmp.c_str(),0777))
-                // {
-                //     std::cout<<"repo created"<<std::endl;
-                // }else
-                // {
-                //     std::cout<<"Error creation repo"<<std::endl;
-                // }
+
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"dl")==0)
             {
                 /* code */
@@ -740,18 +502,22 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 
         } while (1);
     }
+    
+    rc = sqlite3_close(db);
+    if(rc != SQLITE_OK) {
+        fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+    }
 
     std::cout<<"Disconnected"<<std::endl;
     close(connection);
-
 }
 
-void command(int sockfd)
+void quit_command(int sockfd)
 {
     std::string s;
     while (std::cin >> s)
     {
-        if (s == "quit")
+        if (strcmp(s.c_str(),"quit")== 0)
         {
             close(sockfd);
             exit(EXIT_FAILURE);
@@ -759,57 +525,8 @@ void command(int sockfd)
     }
 }
 
-
-int create_socket(int port)
-{
-    int s;
-    struct sockaddr_in addr;    //https://stackoverflow.com/a/21099172  https://www.gta.ufrj.br/ensino/eel878/sockets/sockaddr_inman.html
-
-
-    // Listen to port on any address
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);    // htons is necessary to convert a number to network byte number
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
-
-
-    s = socket(AF_INET, SOCK_STREAM, 0);//man socket(2)
-    //AF_INET (IPv4 protocol) , AF_INET6 (IPv6 protocol)
-    //SOCK_STREAM: TCP(reliable, connection oriented) SOCK_DGRAM: UDP(unreliable, connectionless)
-    //Protocol value for Internet Protocol(IP), which is 0. This is the same number which appears on protocol field in the IP header of a packet.(man protocols for more details)
-
-    if (s < 0) {
-	perror("Unable to create socket");
-	exit(EXIT_FAILURE);
-    }
-
-    // https://linux.die.net/man/3/setsockopt
-        /* Enable the socket to reuse the address */
-        /*
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &sockaddr, sizeof(sockaddr)) == -1) 
-        {
-            perror("setsockopt");
-            return 1;
-        }
-        */
-
-    if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("Unable to bind");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(s, 10) < 0) {
-        perror("Unable to listen");
-        exit(EXIT_FAILURE);
-    }
-
-
-    return s;
-}
-
 int main()
 {
-    int sockfd;
     if (BASIC_CLIENT_SERVER)
     {
         // Create a socket (IPv4, TCP)
@@ -823,8 +540,8 @@ int main()
         exit(EXIT_FAILURE);
         }
 
-        std::thread com(command, sockfd);
-        com.detach();
+        std::thread quit_cmd(quit_command, sockfd);
+        quit_cmd.detach();
 
         // Listen to port 9999 on any address
         sockaddr_in sockaddr;                     //https://stackoverflow.com/a/21099172  https://www.gta.ufrj.br/ensino/eel878/sockets/sockaddr_inman.html
@@ -833,15 +550,6 @@ int main()
         sockaddr.sin_addr.s_addr = INADDR_ANY;
                                         // network byte order
 
-        // https://linux.die.net/man/3/setsockopt
-        /* Enable the socket to reuse the address */
-        /*
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &sockaddr, sizeof(sockaddr)) == -1) 
-        {
-            perror("setsockopt");
-            return 1;
-        }
-        */
         if (bind(sockfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0)
         {
             std::cout << "Failed to bind to port 9999. errno: " << errno << std::endl;
@@ -865,11 +573,10 @@ int main()
                 close(connection);
                 exit(EXIT_FAILURE);
             }
-            // fsync(connection);
 
 
-            std::thread test(threadClient,sockaddr,connection);
-            test.detach();
+            std::thread client_cmd(client_command,sockaddr,connection);
+            client_cmd.detach();
         }
     
     }else
