@@ -579,6 +579,129 @@ void threadClient(sockaddr_in sockaddr,int connection)
                 }
                 write(connection, answer.c_str(), answer.length());
             
+            }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"auth")==0)
+            {
+                sqlite3 *db;
+                sqlite3_stmt* stmt;
+                char *zErrMsg = 0;
+                int rc = sqlite3_open("../database/users.db",&db);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+
+                char sql[] = "UPDATE user SET isAuthenticated = 1 WHERE username = ?";
+                rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+                rc = sqlite3_bind_blob(stmt, 1, connected_cmd.get_param1().c_str(),connected_cmd.get_param1().length(),NULL);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+                
+                rc = sqlite3_step(stmt);
+                if(rc != SQLITE_DONE) 
+                {
+                    fprintf(stderr, "update statement didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                } else {
+                    printf("update completed\n\n");
+                }
+
+                rc = sqlite3_clear_bindings(stmt);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_reset(stmt);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_finalize(stmt);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_close(db);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+
+            }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"admin")==0)
+            {
+
+                sqlite3 *db;
+                sqlite3_stmt* stmt;
+                char *zErrMsg = 0;
+                int rc = sqlite3_open("../database/users.db",&db);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+
+                char sql[] = "UPDATE user SET grade = 'Admin' WHERE username = ?";
+                rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+                if (rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+                rc = sqlite3_bind_blob(stmt, 1, connected_cmd.get_param1().c_str(),connected_cmd.get_param1().length(),NULL);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+                
+                rc = sqlite3_step(stmt);
+                if(rc != SQLITE_DONE) 
+                {
+                    fprintf(stderr, "update statement didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                } else {
+                    printf("update completed\n\n");
+                }
+
+                rc = sqlite3_clear_bindings(stmt);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "clear bindings didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_reset(stmt);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "reset didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_finalize(stmt);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "finalize didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+                rc = sqlite3_close(db);
+                if(rc != SQLITE_OK) 
+                {
+                    fprintf(stderr, "close didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
+                }
+
+
             }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
             {
                 std::cout<<"You're in the delete section"<<std::endl;
