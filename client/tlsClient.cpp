@@ -196,7 +196,6 @@ int connect_to_server()
 
 bool read_from_connection(int sockfd)
 {
-    // Read from the connection
     char buffer[1024];
     read(sockfd, buffer, 1024);
     return buffer[0] == '1';
@@ -222,10 +221,15 @@ int main()
         int sockfd=connect_to_server();;
         std::string username;
         char pass[72];
-        bool not_connected = false;
+        bool connected = false;
         std::string s;
         bool cmd_well_finished = false;
+        bool authentified = false;
+
         do{
+            cmd_well_finished = false;
+            authentified = false;
+            connected = false;
             std::cout <<" === Welcome to a file storage system ===\n"<<
                         "  To create an account write '""create""'\n"<<
                         "  To connect yourself write '""connect""'\n"<<
@@ -249,115 +253,130 @@ int main()
             username = ask_username();
             ask_password(pass);
             Message::userMsg usr(s, username,pass);
-            username.clear();
             serialize_message<Message::userMsg>(usr,sockfd);
-        
             cmd_well_finished = read_from_connection(sockfd);
-            not_connected = std::strcmp(usr.get_cmd_request().c_str(),"create")==0;
 
+            connected = (std::strcmp(usr.get_cmd_request().c_str(),"connect")==0);
+
+            if (connected && cmd_well_finished)
+            {
+                Message::cmdMsg msg("isAuth");
+                serialize_message<Message::cmdMsg>(msg,sockfd);
+                authentified = read_from_connection(sockfd);
+            }
+            
             if (!cmd_well_finished)
             {
                 if(std::strcmp(usr.get_cmd_request().c_str(),"create")==0)
                 {
-                    std::cout<<"Problem to create a user. Try again."<<std::endl;
+                    std::cout<<"!! Problem to create a user. Try again. !!"<<std::endl;
                 }else if(std::strcmp(usr.get_cmd_request().c_str(),"connect")==0)
                 {
-                    std::cout<<"Bad username or password. Try another username."<<std::endl;
+                    std::cout<<"!! Bad username or password. Try another username. !!"<<std::endl;
                 }else
                 {
                     std::cout<<"Undefined error"<<std::endl;
                 }
-            }       
-        }while(not_connected || !cmd_well_finished);
-        
-        Message::cmdMsg msg("isAdmin");
-        serialize_message<Message::cmdMsg>(msg,sockfd);
-        bool is_admin = read_from_connection(sockfd);
+            }else if (!authentified)
+            {
+                std::cout<<"!! Your account is not yet activate. Contact the administrator if you have any problem. !!"<<std::endl;
+            }
 
-        if (is_admin)
-        {
-            std::cout <<" === Here are your commands as a connected admin ===\n"<<
-                "  To delete a file (or repo) write '""del""'\n"<<
-                "  To download a file (or repo) write '""dl""'\n"<<
-                "  To upload a file (or repo) write '""upload""'\n"<<
-                "  To create a repo write '""create""'\n"<<
-                "  To list all files/repo write '""ls""'\n"<<
-                "  To authenticate a user write '""auth""'\n"<<
-                "  To give admin grade write '""admin""'\n"<<
-                "  To quit write '""quit""'"<<std::endl;
-        }else
-        {
-            std::cout <<" === Here are your commands as a connected user ===\n"<<
+        }while(!connected || !cmd_well_finished || !authentified);
+        
+        do{
+            Message::cmdMsg msg("isAdmin");
+            serialize_message<Message::cmdMsg>(msg,sockfd);
+            bool is_admin = read_from_connection(sockfd);
+
+            if (is_admin)
+            {
+                std::cout <<" === Here are your commands as a connected admin ===\n"<<
                     "  To delete a file (or repo) write '""del""'\n"<<
                     "  To download a file (or repo) write '""dl""'\n"<<
                     "  To upload a file (or repo) write '""upload""'\n"<<
                     "  To create a repo write '""create""'\n"<<
                     "  To list all files/repo write '""ls""'\n"<<
+                    "  To activate a user account write '""activate""'\n"<<
+                    "  To deactivate a user account write '""deactivate""'\n"<<
+                    "  To give admin grade write '""admin""'\n"<<
                     "  To quit write '""quit""'"<<std::endl;
-        }
-
-        while (std::cin >> s)
-        {
-            char buffer[1024];
-            if (s == "quit")
+            }else
             {
-                Message::cmdMsg usr(s);
-                serialize_message<Message::cmdMsg>(usr,sockfd);
-                close(sockfd);
-                exit(EXIT_SUCCESS);
-            }else{
+                std::cout <<" === Here are your commands as a connected user ===\n"<<
+                        "  To delete a file (or repo) write '""del""'\n"<<
+                        "  To download a file (or repo) write '""dl""'\n"<<
+                        "  To upload a file (or repo) write '""upload""'\n"<<
+                        "  To create a repo write '""create""'\n"<<
+                        "  To list all files/repo write '""ls""'\n"<<
+                        "  To quit write '""quit""'"<<std::endl;
+            }
 
-                std::string path;
-                if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"dl")==0||std::strcmp(s.c_str(),"create")==0)
+            while (std::cin >> s)
+            {
+                if (strcmp(s.c_str(),"quit")==0)
                 {
-                    std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                    Message::cmdMsg usr(s);
+                    serialize_message<Message::cmdMsg>(usr,sockfd);
+                    close(sockfd);
+                    exit(EXIT_SUCCESS);
+                }else
+                {
+                    break;
+                }
+                
+            }
+            char buffer[1024];
+
+            std::string path;
+            if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"dl")==0||std::strcmp(s.c_str(),"create")==0)
+            {
+                std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
+                std::cin >> path;
+                Message::cmdMsg msg(s,path);
+                serialize_message<Message::cmdMsg>(msg,sockfd);
+
+            // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
+            //le server utilisera execl PAS p
+
+            }else if (std::strcmp(s.c_str(),"upload")==0)
+            {
+                std::cout<<"Enter the path to upload on client side. e.g. path/myDirectory : ";
+                std::cin >> path;
+                std::string dst;
+                std::cout<<"Enter the path on server side. e.g. path/myDirectory : ";
+                std::cin >> dst;
+                Message::cmdMsg msg(s,path,dst);
+                serialize_message<Message::cmdMsg>(msg,sockfd);
+            }else if (std::strcmp(s.c_str(),"ls")==0)
+            {
+                Message::cmdMsg msg(s);
+                serialize_message<Message::cmdMsg>(msg,sockfd);
+
+                // fdatasync(sockfd);
+                read(sockfd, buffer, 1024);
+                std::cout<<buffer<<std::endl;
+            }
+
+            if (is_admin)
+            {
+                if(std::strcmp(s.c_str(),"admin")==0||std::strcmp(s.c_str(),"activate")==0||std::strcmp(s.c_str(),"deactivate")==0)
+                {
+                    std::cout<<"======================User list======================"<<std::endl;
+                    Message::cmdMsg msgList("list_user");
+                    serialize_message<Message::cmdMsg>(msgList,sockfd);
+
+                    read(sockfd, buffer, 1024);
+                    std::cout<<buffer<<std::endl;
+                    std::cout<<"====================================================="<<std::endl;
+
+                    std::cout<<"Enter the concerned user. e.g. abs : ";
                     std::cin >> path;
                     Message::cmdMsg msg(s,path);
                     serialize_message<Message::cmdMsg>(msg,sockfd);
-
-                // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
-                //le server utilisera execl PAS p
-
-                }else if (std::strcmp(s.c_str(),"upload")==0)
-                {
-                    std::cout<<"Enter the path to upload on client side. e.g. path/myDirectory : ";
-                    std::cin >> path;
-                    std::string dst;
-                    std::cout<<"Enter the path on server side. e.g. path/myDirectory : ";
-                    std::cin >> dst;
-                    Message::cmdMsg msg(s,path,dst);
-                    serialize_message<Message::cmdMsg>(msg,sockfd);
-                }else if (std::strcmp(s.c_str(),"ls")==0)
-                {
-                    Message::cmdMsg msg(s);
-                    serialize_message<Message::cmdMsg>(msg,sockfd);
-
-                    // fdatasync(sockfd);
-                    read(sockfd, buffer, 1024);
-                    std::cout<<buffer<<std::endl;
                 }
-
-                if (is_admin)
-                {
-                    if(std::strcmp(s.c_str(),"admin")==0||std::strcmp(s.c_str(),"auth")==0)
-                    {
-                        std::cout<<"======================User list======================"<<std::endl;
-                        Message::cmdMsg msgList("list_user");
-                        serialize_message<Message::cmdMsg>(msgList,sockfd);
-
-                        read(sockfd, buffer, 1024);
-                        std::cout<<buffer<<std::endl;
-                        std::cout<<"====================================================="<<std::endl;
-
-                        std::cout<<"Enter the concerned user. e.g. abs : ";
-                        std::cin >> path;
-                        Message::cmdMsg msg(s,path);
-                        serialize_message<Message::cmdMsg>(msg,sockfd);
-                    }
-                }    
-        }
-    }
-
+            } 
+        }while(1);
         //close(sockfd);
     }else
     {

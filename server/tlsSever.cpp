@@ -207,6 +207,7 @@ void client_command(sockaddr_in sockaddr,int connection)
 
     bool quit = false;
     bool connected = false;
+    bool authentified = false;
     char pass[72]{};
     Message::userMsg usr("","",pass);
     do
@@ -348,8 +349,44 @@ void client_command(sockaddr_in sockaddr,int connection)
             write(connection, reponse.c_str(), reponse.length());
             connected = well_terminated;
         }
-        
-    } while (!connected);
+        if (connected)
+        {
+            Message::cmdMsg connected_cmd(" ");
+            unserialize_message<Message::cmdMsg>(connected_cmd,connection);
+
+            if(strcmp(connected_cmd.get_cmd_request().c_str(),"isAuth")==0)
+            {
+
+
+                char sql[] = "SELECT isAuthenticated FROM user WHERE username = ?";
+                    rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
+                    if (rc != SQLITE_OK) 
+                    {
+                        fprintf(stderr, "Can't prepare select statment %s (%i): %s\n", sql, rc, sqlite3_errmsg(db));
+                        sqlite3_close(db);
+                        exit(1);
+                    }
+                    rc = sqlite3_bind_blob(stmt, 1, usr.get_username().c_str(),usr.get_username().length(),NULL);
+                    if(rc != SQLITE_OK) {
+                        fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+                        sqlite3_close(db);
+                        exit(1);
+                    }
+
+                    const char* isAuth="";
+                    if ( (rc = sqlite3_step(stmt)) == SQLITE_ROW) 
+                    {
+                        const unsigned char* auth = sqlite3_column_text(stmt, 0);
+                        const std::string temp_auth = reinterpret_cast<const char *>(auth);
+                        isAuth = temp_auth.c_str();
+                    }
+                    
+                    finalize_query(stmt, db);
+                    authentified = strcmp(isAuth,"1")==0;
+                    write(connection, isAuth, sizeof(isAuth));
+            }
+        }
+    } while (!connected || !authentified);
 
     if (connected)
     {
@@ -418,9 +455,10 @@ void client_command(sockaddr_in sockaddr,int connection)
 
                finalize_query(stmt, db);
                 write(connection, answer.c_str(), answer.length());
-            }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"auth")==0)
+            }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"activate")==0||std::strcmp(connected_cmd.get_cmd_request().c_str(),"deactivate")==0)
             {
-                char sql[] = "UPDATE user SET isAuthenticated = 1 WHERE username = ?";
+                int val = (std::strcmp(connected_cmd.get_cmd_request().c_str(),"activate")==0);
+                char sql[] = "UPDATE user SET isAuthenticated = ? WHERE username = ?";
                 rc = sqlite3_prepare_v2(db,sql,-1, &stmt,0);
                 if (rc != SQLITE_OK) 
                 {
@@ -428,7 +466,13 @@ void client_command(sockaddr_in sockaddr,int connection)
                     sqlite3_close(db);
                     exit(1);
                 }
-                rc = sqlite3_bind_blob(stmt, 1, connected_cmd.get_param1().c_str(),connected_cmd.get_param1().length(),NULL);
+                rc = sqlite3_bind_int(stmt, 1, val);
+                if(rc != SQLITE_OK) {
+                    fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
+                    sqlite3_close(db);
+                    exit(1);
+                }
+                rc = sqlite3_bind_blob(stmt, 2, connected_cmd.get_param1().c_str(),connected_cmd.get_param1().length(),NULL);
                 if(rc != SQLITE_OK) {
                     fprintf(stderr, "Error binding value in insert (%i): %s\n", rc, sqlite3_errmsg(db));
                     sqlite3_close(db);
