@@ -1,6 +1,7 @@
 #divers
 *.vscode
 .DS_Store
+server/files/*
 
 # Prerequisites
 *.d
