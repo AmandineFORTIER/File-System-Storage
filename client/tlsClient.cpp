@@ -220,6 +220,7 @@ int main()
     {
         int sockfd=connect_to_server();;
         std::string username;
+
         char pass[72];
         bool connected = false;
         std::string s;
@@ -329,7 +330,7 @@ int main()
             char buffer[1024];
 
             std::string path;
-            if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"dl")==0||std::strcmp(s.c_str(),"create")==0)
+            if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"create")==0)
             {
                 std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
                 std::cin >> path;
@@ -339,7 +340,7 @@ int main()
             // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
             //le server utilisera execl PAS p
 
-            }else if (std::strcmp(s.c_str(),"upload")==0)
+            }else if (std::strcmp(s.c_str(),"dl")==0)
             {
                 std::cout<<"Enter the path to upload on client side. e.g. path/myDirectory : ";
                 std::cin >> path;
@@ -348,6 +349,54 @@ int main()
                 std::cin >> dst;
                 Message::cmdMsg msg(s,path,dst);
                 serialize_message<Message::cmdMsg>(msg,sockfd);
+                
+                std::string fileName = "./1GB.zip";
+                FILE * readFile =  fopen(fileName.data(),"wb");
+                char recvbuf[1024];
+                memset(recvbuf,0,sizeof(recvbuf));
+                int FileSize = 0;
+                int error = recv(sockfd,recvbuf,1024,0);
+                if (error == 0)
+                {
+                std::cout<<"Error in receving FileSize "<<std::endl;
+                }
+                else
+                {
+                FileSize = atoi(recvbuf);
+                std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
+                }
+
+                std::string recevedbuf;
+                memset(&recevedbuf,0,sizeof(recevedbuf));
+                char buffer[1024];
+                int bytesReceived = 0;
+                while(FileSize > 0)
+                {
+                    bytesReceived = 0;
+                    memset(buffer,0,sizeof(buffer));
+                    if(FileSize>1024)
+                    {
+                        bytesReceived = recv(sockfd, buffer, 1024, 0 );
+                        fwrite(buffer, 1024, 1, readFile);
+                    }
+                    else
+                    {
+                        bytesReceived =recv( sockfd, buffer, FileSize, 0 );
+                        buffer[FileSize]='\0';
+                        fwrite(buffer, FileSize, 1, readFile);
+                        send(sockfd,"END",strlen("END"),0);
+                    }
+                    FileSize -= 1024;
+                }
+                fclose(readFile);
+               
+
+
+            }else if (std::strcmp(s.c_str(),"upload")==0)
+            {
+             
+             
+
             }else if (std::strcmp(s.c_str(),"ls")==0)
             {
                 Message::cmdMsg msg(s);

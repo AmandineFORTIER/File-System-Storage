@@ -21,7 +21,10 @@
 #include <dirent.h>
 #include <cstdlib>
 #include <iostream>
-
+#include <sys/sendfile.h>
+#include <fcntl.h>
+#include <fstream>      // std::ifstream
+#include <stdlib.h>
 // /**
 //  * @brief Callbacks invoked by TLS::Channel.
 //  *
@@ -158,6 +161,20 @@
 
 bool BASIC_CLIENT_SERVER = true;
 //def port number, nb max connection, ...
+
+std::string itoa(int a)
+{
+    std::string ss="";   //create empty string
+    while(a)
+    {
+        int x=a%10;
+        a/=10;
+        char i='0';
+        i=i+x;
+        ss=i+ss;      //append new character at the front of the string!
+    }
+    return ss;
+}
 
 template <typename T>
 void unserialize_message(T& msg, int connection)
@@ -528,10 +545,75 @@ void client_command(sockaddr_in sockaddr,int connection)
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"dl")==0)
             {
-                /* code */
+                std::string filepath = "./files/1GB.zip";
+                std::ifstream myFile(filepath, std::ios::in|std::ios::binary|std::ios::ate);
+                int size = (int)myFile.tellg();
+                myFile.close();
+                FILE * readFile =  fopen(filepath.data(),"rb");
+                if (readFile == NULL)
+                {
+                    std::cout<<"Unable to open File";
+                    return;
+                }
+                std::cout<<"\nNumber of Bytes :"<<size<<std::endl;
+
+                std::string FileSize = itoa(size).c_str();
+                int fileSizeLength = FileSize.length();
+                FileSize[fileSizeLength] = '\0';
+                send(connection,FileSize.c_str(),fileSizeLength,0);
+                double origin_size = size;
+                char buffer[1024];
+                int pourc;
+                int bytesReceived = 0;
+                int test = 0;
+                int last_pourc = 0;
+                while(size > 0)
+                {
+                    bytesReceived = 0;
+                    memset(buffer,0,sizeof(buffer));
+                        if(size>1024)
+                        {
+                            fread(buffer, 1024, 1, readFile);
+                            bytesReceived = send( connection, buffer, 1024, 0 );
+                        }
+                        else
+                        {
+                            fread(buffer, size, 1, readFile);
+                            buffer[size]='\0';
+                            bytesReceived = send( connection, buffer, size, 0 );
+                        }
+                        test+=bytesReceived;
+                     size -= 1024;
+                     pourc = (test/origin_size)*100;
+                     
+                     if (pourc != last_pourc && pourc%10 == 0)
+                     {
+                        std::cout<<pourc<<std::endl;
+                        last_pourc = pourc;
+                     }
+                     
+                     
+                }
+                char recev[10];
+                memset(recev,0,sizeof(recev));
+                read(connection,recev,strlen("END"));
+                if(strcmp(recev,"END")== 0)
+                {
+                    std::cout<<"END received"<<std::endl;
+                }
+                fclose(readFile);
+
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"upload")==0)
             {
-                /* code */
+                
+                // struct dirent * dir;
+                // DIR* dp = opendir(".");
+                // int dirFd = open("./files/test.zip",O_RDONLY);
+                // std::cout<<sendfile(connection,dirFd,0,1024)<<std::endl;
+
+
+                
+
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"ls")==0)
             {
                 std::string ls_output;
