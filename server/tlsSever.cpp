@@ -419,7 +419,6 @@ void client_command(sockaddr_in sockaddr,int connection)
             if (strcmp(connected_cmd.get_cmd_request().c_str(),"quit")==0)
             {
                 break;
-                
             }else if(strcmp(connected_cmd.get_cmd_request().c_str(),"isAdmin")==0)
             {
                 char sql[] = "SELECT grade FROM user WHERE username = ?";
@@ -545,7 +544,7 @@ void client_command(sockaddr_in sockaddr,int connection)
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"dl")==0)
             {
-                std::string filepath = "./files/1GB.zip";
+                std::string filepath = "./files/"+connected_cmd.get_param1();
                 std::ifstream myFile(filepath, std::ios::in|std::ios::binary|std::ios::ate);
                 int size = (int)myFile.tellg();
                 myFile.close();
@@ -553,46 +552,47 @@ void client_command(sockaddr_in sockaddr,int connection)
                 if (readFile == NULL)
                 {
                     std::cout<<"Unable to open File";
-                    return;
+                    break;
                 }
-                std::cout<<"\nNumber of Bytes :"<<size<<std::endl;
-
-                std::string FileSize = itoa(size).c_str();
-                int fileSizeLength = FileSize.length();
-                FileSize[fileSizeLength] = '\0';
-                send(connection,FileSize.c_str(),fileSizeLength,0);
-                double origin_size = size;
-                char buffer[1024];
-                int pourc;
-                int bytesReceived = 0;
-                int test = 0;
-                int last_pourc = 0;
-                while(size > 0)
+                else
                 {
-                    bytesReceived = 0;
-                    memset(buffer,0,sizeof(buffer));
-                        if(size>1024)
+                    std::cout<<"\nNumber of Bytes :"<<size<<std::endl;
+
+                    std::string FileSize = itoa(size).c_str();
+                    int fileSizeLength = FileSize.length();
+                    FileSize[fileSizeLength] = '\0';
+                    send(connection,FileSize.c_str(),fileSizeLength,0);
+                    double origin_size = size;
+                    char buffer[1024];
+                    int pourc;
+                    int bytesReceived = 0;
+                    int test = 0;
+                    int last_pourc = 0;
+                    while(size > 0)
+                    {
+                        bytesReceived = 0;
+                        memset(buffer,0,sizeof(buffer));
+                            if(size>1024)
+                            {
+                                fread(buffer, 1024, 1, readFile);
+                                bytesReceived = send( connection, buffer, 1024, 0 );
+                            }
+                            else
+                            {
+                                fread(buffer, size, 1, readFile);
+                                buffer[size]='\0';
+                                bytesReceived = send( connection, buffer, size, 0 );
+                            }
+                            test+=bytesReceived;
+                        size -= 1024;
+                        pourc = (test/origin_size)*100;
+                        
+                        if (pourc != last_pourc && pourc%10 == 0)
                         {
-                            fread(buffer, 1024, 1, readFile);
-                            bytesReceived = send( connection, buffer, 1024, 0 );
+                            std::cout<<pourc<<std::endl;
+                            last_pourc = pourc;
                         }
-                        else
-                        {
-                            fread(buffer, size, 1, readFile);
-                            buffer[size]='\0';
-                            bytesReceived = send( connection, buffer, size, 0 );
-                        }
-                        test+=bytesReceived;
-                     size -= 1024;
-                     pourc = (test/origin_size)*100;
-                     
-                     if (pourc != last_pourc && pourc%10 == 0)
-                     {
-                        std::cout<<pourc<<std::endl;
-                        last_pourc = pourc;
-                     }
-                     
-                     
+                    }    
                 }
                 char recev[10];
                 memset(recev,0,sizeof(recev));
@@ -606,24 +606,58 @@ void client_command(sockaddr_in sockaddr,int connection)
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"upload")==0)
             {
                 
-                // struct dirent * dir;
-                // DIR* dp = opendir(".");
-                // int dirFd = open("./files/test.zip",O_RDONLY);
-                // std::cout<<sendfile(connection,dirFd,0,1024)<<std::endl;
+                std::string fileName = "./files/"+connected_cmd.get_param2();
+                FILE * readFile =  fopen(fileName.data(),"wb");
+                char recvbuf[1024];
+                memset(recvbuf,0,sizeof(recvbuf));
+                int FileSize = 0;
+                int error = recv(connection,recvbuf,1024,0);
+                if (error == 0)
+                {
+                    std::cout<<"Error in receving FileSize "<<std::endl;
+                    break;
+                }
+                else
+                {
+                    FileSize = atoi(recvbuf);
+                    std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
+                    
 
-
-                
+                    std::string recevedbuf;
+                    memset(&recevedbuf,0,sizeof(recevedbuf));
+                    char buffer[1024];
+                    int bytesReceived = 0;
+                    while(FileSize > 0)
+                    {
+                        bytesReceived = 0;
+                        memset(buffer,0,sizeof(buffer));
+                        if(FileSize>1024)
+                        {
+                            bytesReceived = recv(connection, buffer, 1024, 0 );
+                            fwrite(buffer, 1024, 1, readFile);
+                        }
+                        else
+                        {
+                            bytesReceived =recv( connection, buffer, FileSize, 0 );
+                            buffer[FileSize]='\0';
+                            fwrite(buffer, FileSize, 1, readFile);
+                            send(connection,"END",strlen("END"),0);
+                        }
+                        FileSize -= 1024;
+                    }
+                }
+                fclose(readFile);
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"ls")==0)
             {
                 std::string ls_output;
-                for (const auto & entry : std::filesystem::recursive_directory_iterator(tmp))
+                for (const auto & entry : std::filesystem::recursive_directory_iterator(origin_path))
                 {
-                    ls_output += entry.path().c_str();
+                    ls_output += entry.path().c_str()+origin_path.length();
                     ls_output +="\n";
                 }
                 // fdatasync(connection);
-                write(connection, ls_output.c_str(), ls_output.length());
+                write(connection, ls_output.c_str(), ls_output.length()-1);
             }
                 
         } while (1);
