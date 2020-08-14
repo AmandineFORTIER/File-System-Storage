@@ -2,6 +2,7 @@
 *.vscode
 .DS_Store
 server/files/*
+client/build/files/*
 
 # Prerequisites
 *.d

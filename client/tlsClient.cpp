@@ -148,6 +148,20 @@ std::string ask_username()
     std::cin >> username;
     return username;
 }
+void checkPath(std::string &path)
+{
+    while(std::cin >> path)
+    {
+        if (path.at(0) == '.' || path.at(0) == '/' || path.find("..") != std::string::npos)
+        {
+            std::cout<<"Bad path. You cannot use / as a first indicator and you connot use . and .. and in your path."<<std::endl;;
+        }else
+        {
+            break;
+        }
+    }
+}
+
 std::string itoa(int a)
 {
     std::string ss="";   //create empty string
@@ -210,6 +224,7 @@ int connect_to_server()
 bool read_from_connection(int sockfd)
 {
     char buffer[1024];
+    memset(buffer,0,sizeof(buffer));
     read(sockfd, buffer, 1024);
     return buffer[0] == '1';
 }
@@ -346,7 +361,7 @@ int main()
             if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"create")==0)
             {
                 std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
-                std::cin >> path;
+                checkPath(path);
                 Message::cmdMsg msg(s,path);
                 serialize_message<Message::cmdMsg>(msg,sockfd);
 
@@ -356,7 +371,7 @@ int main()
             }else if (std::strcmp(s.c_str(),"dl")==0)
             {
                 std::cout<<"Enter the path of the file/repo you want to download. e.g. path/myDirectory : ";
-                std::cin >> path;
+                checkPath(path);
                 Message::cmdMsg msg(s,path);
                 serialize_message<Message::cmdMsg>(msg,sockfd);
                 
@@ -376,9 +391,6 @@ int main()
                 FileSize = atoi(recvbuf);
                 std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
                 
-
-                std::string recevedbuf;
-                memset(&recevedbuf,0,sizeof(recevedbuf));
                 char buffer[1024];
                 int bytesReceived = 0;
                 while(FileSize > 0)
@@ -407,7 +419,7 @@ int main()
                 std::cout<<"Enter the path of the file/repo you want to upload. e.g. path/myDirectory : ";
                 std::cin >> path;
                 std::cout<<"Enter the path owhere you want to add your file/repo. e.g. path/myDirectory : ";
-                std::cin >> pathDst;
+                checkPath(pathDst);
                 Message::cmdMsg msg(s,path, pathDst);
                 serialize_message<Message::cmdMsg>(msg,sockfd);
                 
@@ -466,6 +478,7 @@ int main()
                 {
                     std::cout<<"END received"<<std::endl;
                 }
+                memset(recev,0,sizeof(recev));
                 fclose(readFile);
 
             }else if (std::strcmp(s.c_str(),"ls")==0)
@@ -476,6 +489,7 @@ int main()
                 std::cout<<"=============Files listing============="<<std::endl;;
                 read(sockfd, buffer, 1024);
                 std::cout<<buffer<<std::endl;
+                memset(buffer,0,sizeof(buffer));
                 std::cout<<"======================================="<<std::endl;;
             }
 
@@ -489,6 +503,7 @@ int main()
 
                     read(sockfd, buffer, 1024);
                     std::cout<<buffer<<std::endl;
+                    memset(buffer,0,sizeof(buffer));
                     std::cout<<"====================================================="<<std::endl;
 
                     std::cout<<"Enter the concerned user. e.g. abs : ";

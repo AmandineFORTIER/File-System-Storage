@@ -180,6 +180,7 @@ template <typename T>
 void unserialize_message(T& msg, int connection)
 {
     char buffer[sizeof(msg)];
+    memset(buffer,0,sizeof(buffer));
     std::string temp;
     std::stringstream ss;
 
@@ -286,7 +287,6 @@ void client_command(sockaddr_in sockaddr,int connection)
             {
                 fprintf(stderr, "insert statement didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
             } else {
-                printf("INSERT completed\n\n");
                 well_terminated=true;
             }
 
@@ -499,8 +499,6 @@ void client_command(sockaddr_in sockaddr,int connection)
                 if(rc != SQLITE_DONE) 
                 {
                     fprintf(stderr, "update statement didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                } else {
-                    printf("update completed\n\n");
                 }
                 finalize_query(stmt, db);
 
@@ -525,8 +523,6 @@ void client_command(sockaddr_in sockaddr,int connection)
                 if(rc != SQLITE_DONE) 
                 {
                     fprintf(stderr, "update statement didn't return DONE (%i): %s\n", rc, sqlite3_errmsg(db));
-                } else {
-                    printf("update completed\n\n");
                 }
 
                 finalize_query(stmt, db);
@@ -598,11 +594,11 @@ void client_command(sockaddr_in sockaddr,int connection)
                 {
                     std::cout<<"END received"<<std::endl;
                 }
+                memset(recev,0,sizeof(recev));
                 fclose(readFile);
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"upload")==0)
             {
-                
                 std::string fileName = "./files/"+connected_cmd.get_param2();
                 FILE * readFile =  fopen(fileName.data(),"wb");
                 char recvbuf[1024];
@@ -619,9 +615,6 @@ void client_command(sockaddr_in sockaddr,int connection)
                     FileSize = atoi(recvbuf);
                     std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
                     
-
-                    std::string recevedbuf;
-                    memset(&recevedbuf,0,sizeof(recevedbuf));
                     char buffer[1024];
                     int bytesReceived = 0;
                     while(FileSize > 0)
