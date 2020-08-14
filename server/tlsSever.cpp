@@ -533,9 +533,6 @@ void client_command(sockaddr_in sockaddr,int connection)
 
             }else if(std::strcmp(connected_cmd.get_cmd_request().c_str(),"del")==0)
             {
-                std::cout<<"You're in the delete section"<<std::endl;
-                std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
-
                 std::filesystem::remove_all(tmp.c_str());
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"create")==0)
             {
@@ -650,7 +647,7 @@ void client_command(sockaddr_in sockaddr,int connection)
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"ls")==0)
             {
-                std::string ls_output;
+                std::string ls_output="";
                 for (const auto & entry : std::filesystem::recursive_directory_iterator(origin_path))
                 {
                     ls_output += entry.path().c_str()+origin_path.length();
@@ -658,6 +655,7 @@ void client_command(sockaddr_in sockaddr,int connection)
                 }
                 // fdatasync(connection);
                 write(connection, ls_output.c_str(), ls_output.length()-1);
+                ls_output.clear();
             }
                 
         } while (1);
