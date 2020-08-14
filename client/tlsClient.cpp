@@ -5,7 +5,7 @@
 #include <botan-2/botan/auto_rng.h>
 #include <botan-2/botan/certstor.h>
 #include <botan-2/botan/certstor_system.h>
-#include "../Message.h"
+#include "../Message.hpp"
 #include <sstream>
 #include <sys/socket.h> // For socket functions
 #include <netinet/in.h> // For sockaddr_in
@@ -19,6 +19,7 @@
 #include <string>
 #include <queue>
 #include <fstream>      // std::ifstream
+#include <zip.h>
 
 // /**
 //  * @brief Callbacks invoked by TLS::Channel.
@@ -356,7 +357,7 @@ int main()
                 
             }
             char buffer[1024];
-
+            
             std::string path;
             if(std::strcmp(s.c_str(),"del")==0||std::strcmp(s.c_str(),"create")==0)
             {

@@ -1,3 +1,7 @@
+#ifndef MESSAGE_H
+#define MESSAGE_H
+
+
 #include <iostream>
 
 struct Message
@@ -105,3 +109,5 @@ std::string Message::userMsg::get_username()
 //     to_string += this->password;
 //     return to_string;
 // }
+
+#endif

@@ -1,6 +1,6 @@
 #include <memory>
 #include <sqlite3.h>
-#include "../Message.h"
+#include "../Message.hpp"
 #include <sstream>
 #include <arpa/inet.h>
 #include <sys/socket.h> // For socket functions
@@ -614,7 +614,7 @@ void client_command(sockaddr_in sockaddr,int connection)
                 {
                     FileSize = atoi(recvbuf);
                     std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
-                    
+
                     char buffer[1024];
                     int bytesReceived = 0;
                     while(FileSize > 0)
