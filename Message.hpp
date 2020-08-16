@@ -3,6 +3,7 @@
 
 
 #include <iostream>
+#include <filesystem>
 
 struct Message
 {
@@ -62,7 +63,47 @@ struct Message
                 return in;
             }
     };
+
+    struct unixFile
+    {
+        private:
+            std::filesystem::path path;
+            bool is_dir;
+            ssize_t size;
+        public:
+            unixFile(std::filesystem::path path, bool is_dir, ssize_t size);
+            std::filesystem::path get_path();
+            bool get_is_dir();
+            ssize_t get_size();
+            friend std::ostream& operator<< (std::ostream& out, unixFile& object) 
+            {
+                out << object.path<<" "<< object.is_dir<<" "<<object.size;   //The space (" ") is necessari for separete elements
+                return out;
+            }
+
+            friend std::istream& operator>> (std::istream& in, unixFile& object) 
+            {
+                in >> object.path;
+                in >> object.is_dir;
+                in >> object.size;
+                return in;
+            }
+    };
 };
+
+Message::unixFile::unixFile(std::filesystem::path path, bool is_dir, ssize_t size):path(path), is_dir(is_dir), size(size){}
+std::filesystem::path Message::unixFile::get_path()
+{
+    return path;
+}
+bool Message::unixFile::get_is_dir()
+{
+    return is_dir;
+}
+ssize_t Message::unixFile::get_size()
+{
+    return size;
+}
 
 Message::cmdMsg::cmdMsg(std::string cmd_request):cmdMsg(cmd_request,"",""){}
 Message::cmdMsg::cmdMsg(std::string cmd_request, std::string param1):cmdMsg(cmd_request,param1,""){}

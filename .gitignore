@@ -1,8 +1,8 @@
 #divers
 *.vscode
 .DS_Store
-server/files/*
-client/build/files/*
+*server/files/*
+*client/build/files/*
 
 # Prerequisites
 *.d

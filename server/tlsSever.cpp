@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <fstream>      // std::ifstream
 #include <stdlib.h>
+
 // /**
 //  * @brief Callbacks invoked by TLS::Channel.
 //  *
@@ -162,6 +163,16 @@
 bool BASIC_CLIENT_SERVER = true;
 //def port number, nb max connection, ...
 
+void check_path_exists(std::string& path)
+{
+    std::filesystem::path p(path);
+    while (!std::filesystem::exists(p))
+    {
+        std::cout<<"This file doesn't exists. Enter a correct file path."<<std::endl;
+        std::cin >> path;
+        p = std::filesystem::path(path);
+    }
+}
 std::string itoa(int a)
 {
     std::string ss="";   //create empty string
@@ -189,6 +200,81 @@ void unserialize_message(T& msg, int connection)
     ss << temp;
     ss >> msg;
     ss.clear();
+}
+
+
+template <typename T>
+void serialize_message(T& msg, int sockfd)
+{
+    std::stringstream ss;
+    ss << msg;    //serialize
+    write (sockfd, ss.str().c_str(), sizeof(msg)); 
+    ss.clear();
+}
+
+void send_msg(int sockfd, std::string path, ssize_t file_size)
+{
+    FILE * readFile =  fopen(path.data(),"rb");
+    if (readFile == NULL)
+    {
+        std::cout<<"Unable to open File";
+        fclose(readFile);
+        close(sockfd);
+    }
+
+    int buffSize = 1024;
+    if (file_size<1024)
+    {
+        buffSize = file_size;
+    }
+
+    std::cout<<"\nNumber of Bytes :"<<file_size<<std::endl;
+
+    std::string FileSize = itoa(buffSize).c_str();
+    FileSize[buffSize] = '\0';
+    send(sockfd,FileSize.c_str(),buffSize,0);
+    double origin_size = file_size;
+
+    
+    char buffer[buffSize];
+    int pourc;
+    int bytesReceived = 0;
+    int test = 0;
+    int last_pourc = 0;
+    while(file_size > 0)
+    {
+        bytesReceived = 0;
+        memset(buffer,0,sizeof(buffer));
+            if(file_size>1024)
+            {
+                fread(buffer, 1024, 1, readFile);
+                bytesReceived = send(sockfd, buffer, 1024, 0 );
+            }
+            else
+            {
+                fread(buffer, file_size, 1, readFile);
+                buffer[file_size]='\0';
+                bytesReceived = send( sockfd, buffer, file_size, 0 );
+            }
+            test+=bytesReceived;
+            file_size -= 1024;
+            pourc = (test/origin_size)*100;
+            
+            if (pourc != last_pourc && pourc%10 == 0)
+            {
+            std::cout<<pourc<<std::endl;
+            last_pourc = pourc;
+            }                    
+    }
+    char recev[10];
+    memset(recev,0,sizeof(recev));
+    read(sockfd,recev,strlen("END"));
+    if(strcmp(recev,"END")== 0)
+    {
+        std::cout<<"END received"<<std::endl;
+    }
+    memset(recev,0,sizeof(recev));
+    fclose(readFile);
 }
 
 void finalize_query(sqlite3_stmt* stmt, sqlite3 *db)
@@ -533,110 +619,294 @@ void client_command(sockaddr_in sockaddr,int connection)
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"create")==0)
             {
                 std::filesystem::create_directories(tmp);
-                std::filesystem::permissions(tmp, std::filesystem::perms::all, std::filesystem::perm_options::replace);
+                std::filesystem::permissions(tmp, std::filesystem::perms::all, std::filesystem::perm_options::add);
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"dl")==0)
             {
-                std::string filepath = "./files/"+connected_cmd.get_param1();
-                std::ifstream myFile(filepath, std::ios::in|std::ios::binary|std::ios::ate);
-                int size = (int)myFile.tellg();
-                myFile.close();
-                FILE * readFile =  fopen(filepath.data(),"rb");
-                if (readFile == NULL)
-                {
-                    std::cout<<"Unable to open File";
-                    break;
-                }
-                else
-                {
-                    std::cout<<"\nNumber of Bytes :"<<size<<std::endl;
 
-                    std::string FileSize = itoa(size).c_str();
-                    int fileSizeLength = FileSize.length();
-                    FileSize[fileSizeLength] = '\0';
-                    send(connection,FileSize.c_str(),fileSizeLength,0);
-                    double origin_size = size;
-                    char buffer[1024];
-                    int pourc;
-                    int bytesReceived = 0;
-                    int test = 0;
-                    int last_pourc = 0;
-                    while(size > 0)
-                    {
-                        bytesReceived = 0;
-                        memset(buffer,0,sizeof(buffer));
-                            if(size>1024)
-                            {
-                                fread(buffer, 1024, 1, readFile);
-                                bytesReceived = send( connection, buffer, 1024, 0 );
-                            }
-                            else
-                            {
-                                fread(buffer, size, 1, readFile);
-                                buffer[size]='\0';
-                                bytesReceived = send( connection, buffer, size, 0 );
-                            }
-                            test+=bytesReceived;
-                        size -= 1024;
-                        pourc = (test/origin_size)*100;
-                        
-                        if (pourc != last_pourc && pourc%10 == 0)
-                        {
-                            std::cout<<pourc<<std::endl;
-                            last_pourc = pourc;
-                        }
-                    }    
-                }
-                char recev[10];
-                memset(recev,0,sizeof(recev));
-                read(connection,recev,strlen("END"));
-                if(strcmp(recev,"END")== 0)
+                std::string path = "./files/"+connected_cmd.get_param1();
+                check_path_exists(path);
+                
+
+                // Message::cmdMsg msg(s,path, pathDst);
+                // unserialize_message<Message::cmdMsg>(msg,connection);
+
+                std::filesystem::path p(path);
+
+                std::string upload_path(p.filename().generic_string());
+                bool isDir = std::filesystem::is_directory(p);
+                if (isDir)
                 {
-                    std::cout<<"END received"<<std::endl;
+                    Message::unixFile msg(std::filesystem::path(upload_path),isDir,upload_path.length()); 
+                    serialize_message<Message::unixFile>(msg,connection);
+                    for (const auto & entry : std::filesystem::recursive_directory_iterator(path))
+                    {
+                        isDir = std::filesystem::is_directory(entry.path());
+                        if (!isDir)
+                        {
+                            Message::unixFile msg(std::filesystem::path(upload_path+"/"+entry.path().filename().generic_string()),isDir,entry.file_size());
+                            serialize_message<Message::unixFile>(msg,connection);
+                            send_msg(connection,entry.path().c_str(),entry.file_size());
+                        }else
+                        {
+                            upload_path = upload_path+"/"+entry.path().filename().generic_string();
+                            Message::unixFile msg(std::filesystem::path(upload_path),isDir,upload_path.length());
+                            serialize_message<Message::unixFile>(msg,connection);
+                        }
+                    }
+
+                    
+                }else
+                {
+                    Message::unixFile msg(std::filesystem::path(upload_path),isDir,std::filesystem::file_size(p));
+                    serialize_message<Message::unixFile>(msg,connection);
+                    send_msg(connection,path,std::filesystem::file_size(p));
                 }
-                memset(recev,0,sizeof(recev));
-                fclose(readFile);
+                Message::unixFile fin("",isDir,0); 
+                serialize_message<Message::unixFile>(fin,connection);
+
+
+
+
+
+
+
+
+                // std::string filepath = "./files/"+connected_cmd.get_param1();
+                // std::ifstream myFile(filepath, std::ios::in|std::ios::binary|std::ios::ate);
+                // int size = (int)myFile.tellg();
+                // myFile.close();
+                // FILE * readFile =  fopen(filepath.data(),"rb");
+                // if (readFile == NULL)
+                // {
+                //     std::cout<<"Unable to open File";
+                //     break;
+                // }
+                // else
+                // {
+                //     std::cout<<"\nNumber of Bytes :"<<size<<std::endl;
+
+                //     std::string FileSize = itoa(size).c_str();
+                //     int fileSizeLength = FileSize.length();
+                //     FileSize[fileSizeLength] = '\0';
+                //     send(connection,FileSize.c_str(),fileSizeLength,0);
+                //     double origin_size = size;
+                //     char buffer[1024];
+                //     int pourc;
+                //     int bytesReceived = 0;
+                //     int test = 0;
+                //     int last_pourc = 0;
+                //     while(size > 0)
+                //     {
+                //         bytesReceived = 0;
+                //         memset(buffer,0,sizeof(buffer));
+                //             if(size>1024)
+                //             {
+                //                 fread(buffer, 1024, 1, readFile);
+                //                 bytesReceived = send( connection, buffer, 1024, 0 );
+                //             }
+                //             else
+                //             {
+                //                 fread(buffer, size, 1, readFile);
+                //                 buffer[size]='\0';
+                //                 bytesReceived = send( connection, buffer, size, 0 );
+                //             }
+                //             test+=bytesReceived;
+                //         size -= 1024;
+                //         pourc = (test/origin_size)*100;
+                        
+                //         if (pourc != last_pourc && pourc%10 == 0)
+                //         {
+                //             std::cout<<pourc<<std::endl;
+                //             last_pourc = pourc;
+                //         }
+                //     }    
+                // }
+                // char recev[10];
+                // memset(recev,0,sizeof(recev));
+                // read(connection,recev,strlen("END"));
+                // if(strcmp(recev,"END")== 0)
+                // {
+                //     std::cout<<"END received"<<std::endl;
+                // }
+                // memset(recev,0,sizeof(recev));
+                // fclose(readFile);
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"upload")==0)
             {
-                std::string fileName = "./files/"+connected_cmd.get_param2();
-                FILE * readFile =  fopen(fileName.data(),"wb");
-                char recvbuf[1024];
-                memset(recvbuf,0,sizeof(recvbuf));
-                int FileSize = 0;
-                int error = recv(connection,recvbuf,1024,0);
-                if (error == 0)
+                Message::unixFile file(std::filesystem::path(""),false,0);
+                do
                 {
-                    std::cout<<"Error in receving FileSize "<<std::endl;
-                    break;
-                }
-                else
-                {
-                    FileSize = atoi(recvbuf);
-                    std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
+                        unserialize_message<Message::unixFile>(file,connection);
+                        if (file.get_size() == 0)
+                        {
+                            break;
+                        }
+                    
+                        if (file.get_is_dir())
+                        {
+                            std::string path = "./files/"+connected_cmd.get_param2()+"/"+file.get_path().generic_string();
+                            std::filesystem::create_directories(path);
+                            try{
+                                std::filesystem::permissions(path, std::filesystem::perms::all, std::filesystem::perm_options::add);
+                            }catch(...)
+                            {
+                                std::cout<<"An error occuried."<<std::endl;
+                                break;
+                            }
+                        }else
+                        {
+                            std::string fileName = "./files/"+connected_cmd.get_param2()+"/"+file.get_path().generic_string();
+                            FILE * readFile =  fopen(fileName.data(),"wb");
+                            try{
+                            std::filesystem::permissions(fileName, std::filesystem::perms::all, std::filesystem::perm_options::add);
+                            }catch(...)
+                            {
+                                std::cout<<"An error occuried."<<std::endl;
+                                break;
+                            }
+                            int FileSize = file.get_size();
+                            int buffSize = 1024;
+                            if (FileSize < 1024)
+                            {
+                                buffSize=FileSize;
+                            }
+                            
+                            char recvbuf[buffSize];
+                            memset(recvbuf,0,buffSize);
+                            int error = recv(connection,recvbuf,buffSize,0);
+                            if (error == 0)
+                            {
+                                std::cout<<"Error in receving FileSize "<<std::endl;
+                                break;
+                            }
+                            else
+                            {
+                                char buffer[buffSize];
+                                int bytesReceived = 0;
+                                
+                                while(FileSize > 0)
+                                {
+                                    
+                                    bytesReceived = 0;
+                                    memset(buffer,0,buffSize);
+                                    if(FileSize>1024)
+                                    {
+                                        bytesReceived = recv(connection, buffer, 1024, 0 );
+                                        fwrite(buffer, 1024, 1, readFile);
+                                    }
+                                    else
+                                    {
+                                        bytesReceived =recv(connection, buffer, FileSize, 0 );
+                                        buffer[FileSize]='\0';
+                                        fwrite(buffer, FileSize, 1, readFile);
+                                        send(connection,"END",strlen("END"),0);
+                                    }
+                                    FileSize -= 1024;
+                                }
+                                
+                            }
+                            fclose(readFile);
+                        }
+                    }while(file.get_size() != 0);   
+                
+            
 
-                    char buffer[1024];
-                    int bytesReceived = 0;
-                    while(FileSize > 0)
-                    {
-                        bytesReceived = 0;
-                        memset(buffer,0,sizeof(buffer));
-                        if(FileSize>1024)
-                        {
-                            bytesReceived = recv(connection, buffer, 1024, 0 );
-                            fwrite(buffer, 1024, 1, readFile);
-                        }
-                        else
-                        {
-                            bytesReceived =recv( connection, buffer, FileSize, 0 );
-                            buffer[FileSize]='\0';
-                            fwrite(buffer, FileSize, 1, readFile);
-                            send(connection,"END",strlen("END"),0);
-                        }
-                        FileSize -= 1024;
-                    }
-                }
-                fclose(readFile);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                // std::string fileName = "./files/"+connected_cmd.get_param2();
+                // FILE * readFile =  fopen(fileName.data(),"wb");
+                // char recvbuf[1024];
+                // memset(recvbuf,0,sizeof(recvbuf));
+                // int FileSize = 0;
+                // int error = recv(connection,recvbuf,1024,0);
+                // if (error == 0)
+                // {
+                //     std::cout<<"Error in receving FileSize "<<std::endl;
+                //     break;
+                // }
+                // else
+                // {
+                //     FileSize = atoi(recvbuf);
+                //     std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
+
+                //     char buffer[1024];
+                //     int bytesReceived = 0;
+                //     while(FileSize > 0)
+                //     {
+                //         bytesReceived = 0;
+                //         memset(buffer,0,sizeof(buffer));
+                //         if(FileSize>1024)
+                //         {
+                //             bytesReceived = recv(connection, buffer, 1024, 0 );
+                //             fwrite(buffer, 1024, 1, readFile);
+                //         }
+                //         else
+                //         {
+                //             bytesReceived =recv( connection, buffer, FileSize, 0 );
+                //             buffer[FileSize]='\0';
+                //             fwrite(buffer, FileSize, 1, readFile);
+                //             send(connection,"END",strlen("END"),0);
+                //         }
+                //         FileSize -= 1024;
+                //     }
+                // }
+                // fclose(readFile);
+                
+                // std::string toErase = ".zip";
+                // size_t pos = fileName.find(toErase);
+                // if (pos != std::string::npos)
+                // {
+                //     std::filesystem::permissions(fileName, std::filesystem::perms::owner_all|std::filesystem::perms::group_all|std::filesystem::perms::others_all, std::filesystem::perm_options::replace);
+                //     // If found then erase it from string
+                //     fileName.erase(pos, toErase.length());
+                // }
+
+                // std::filesystem::create_directories(fileName);
+                // std::filesystem::permissions(fileName, std::filesystem::perms::owner_all|std::filesystem::perms::group_read|std::filesystem::perms::others_read, std::filesystem::perm_options::add);
+                // std::string cmd = "unzip "+fileName+".zip -d "+fileName;
+                // std::cout<<cmd<<std::endl;
+                // system(cmd.c_str());
+                // std::string wZip = fileName+".zip";
+                // // std::filesystem::remove(wZip.c_str());
+
 
             }else if (std::strcmp(connected_cmd.get_cmd_request().c_str(),"ls")==0)
             {
@@ -649,7 +919,11 @@ void client_command(sockaddr_in sockaddr,int connection)
                 // fdatasync(connection);
                 write(connection, ls_output.c_str(), ls_output.length()-1);
                 ls_output.clear();
+            }else
+            {
+                break;
             }
+            
                 
         } while (1);
     }

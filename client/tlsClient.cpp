@@ -19,8 +19,6 @@
 #include <string>
 #include <queue>
 #include <fstream>      // std::ifstream
-#include <zip.h>
-
 // /**
 //  * @brief Callbacks invoked by TLS::Channel.
 //  *
@@ -141,28 +139,6 @@
 //         Botan::AutoSeeded_RNG rng;
 //         std::vector<std::shared_ptr<Botan::Certificate_Store>> m_stores;
 // };
-
-std::string ask_username()
-{
-    std::string username;
-    std::cout<<"Username: ";
-    std::cin >> username;
-    return username;
-}
-void checkPath(std::string &path)
-{
-    while(std::cin >> path)
-    {
-        if (path.at(0) == '.' || path.at(0) == '/' || path.find("..") != std::string::npos)
-        {
-            std::cout<<"Bad path. You cannot use / as a first indicator and you connot use . and .. and in your path."<<std::endl;;
-        }else
-        {
-            break;
-        }
-    }
-}
-
 std::string itoa(int a)
 {
     std::string ss="";   //create empty string
@@ -176,6 +152,105 @@ std::string itoa(int a)
     }
     return ss;
 }
+
+void send_msg(int sockfd, std::string path, ssize_t file_size)
+{
+    FILE * readFile =  fopen(path.data(),"rb");
+    if (readFile == NULL)
+    {
+        std::cout<<"Unable to open File";
+        fclose(readFile);
+        close(sockfd);
+    }
+
+    int buffSize = 1024;
+    if (file_size<1024)
+    {
+        buffSize = file_size;
+    }
+
+    std::cout<<"\nNumber of Bytes :"<<file_size<<std::endl;
+
+    std::string FileSize = itoa(buffSize).c_str();
+    FileSize[buffSize] = '\0';
+    send(sockfd,FileSize.c_str(),buffSize,0);
+    double origin_size = file_size;
+
+    
+    char buffer[buffSize];
+    int pourc;
+    int bytesReceived = 0;
+    int test = 0;
+    int last_pourc = 0;
+    while(file_size > 0)
+    {
+        bytesReceived = 0;
+        memset(buffer,0,sizeof(buffer));
+            if(file_size>1024)
+            {
+                fread(buffer, 1024, 1, readFile);
+                bytesReceived = send(sockfd, buffer, 1024, 0 );
+            }
+            else
+            {
+                fread(buffer, file_size, 1, readFile);
+                buffer[file_size]='\0';
+                bytesReceived = send( sockfd, buffer, file_size, 0 );
+            }
+            test+=bytesReceived;
+            file_size -= 1024;
+            pourc = (test/origin_size)*100;
+            
+            if (pourc != last_pourc && pourc%10 == 0)
+            {
+            std::cout<<pourc<<std::endl;
+            last_pourc = pourc;
+            }                    
+    }
+    char recev[10];
+    memset(recev,0,sizeof(recev));
+    read(sockfd,recev,strlen("END"));
+    if(strcmp(recev,"END")== 0)
+    {
+        std::cout<<"END received"<<std::endl;
+    }
+    memset(recev,0,sizeof(recev));
+    fclose(readFile);
+}
+
+void check_path_exists(std::string& path)
+{
+    std::filesystem::path p(path);
+    while (!std::filesystem::exists(p))
+    {
+        std::cout<<"This file doesn't exists. Enter a correct file path."<<std::endl;
+        std::cin >> path;
+        p = std::filesystem::path(path);
+    }
+}
+
+std::string ask_username()
+{
+    std::string username;
+    std::cout<<"Username: ";
+    std::cin >> username;
+    return username;
+}
+void checkPath(std::string &path)
+{
+    while(std::cin >> path)
+    {
+        if (path.at(0) == '/' || path.find("..") != std::string::npos)
+        {
+            std::cout<<"Bad path. You cannot use / as a first indicator and .. and in your path."<<std::endl;;
+        }else
+        {
+            break;
+        }
+    }
+}
+
+
 void ask_password(char password[72])
 {
     std::cout<<"Password : ";
@@ -239,6 +314,20 @@ void serialize_message(T& msg, int sockfd)
     ss.clear();
 }
 
+template <typename T>
+void unserialize_message(T& msg, int connection)
+{
+    char buffer[sizeof(msg)];
+    memset(buffer,0,sizeof(buffer));
+    std::string temp;
+    std::stringstream ss;
+
+    read(connection, buffer, sizeof(msg)); 
+    temp.assign(buffer); 
+    ss << temp;
+    ss >> msg;
+    ss.clear();
+}
 
 int main()
 {
@@ -365,122 +454,134 @@ int main()
                 checkPath(path);
                 Message::cmdMsg msg(s,path);
                 serialize_message<Message::cmdMsg>(msg,sockfd);
-
-            // envoyer un msg sans user vu qu'il est co. Dans l'idee j'aimerais creer un vrai user et avec un setuid faire comme si c'etais lui qui fais les actions. 
-            //le server utilisera execl PAS p
-
             }else if (std::strcmp(s.c_str(),"dl")==0)
             {
                 std::cout<<"Enter the path of the file/repo you want to download. e.g. path/myDirectory : ";
                 checkPath(path);
-                Message::cmdMsg msg(s,path);
-                serialize_message<Message::cmdMsg>(msg,sockfd);
+                Message::cmdMsg msgDl(s,path);
+                serialize_message<Message::cmdMsg>(msgDl,sockfd);
                 
-                std::string fileName = "./files/"+path;
-                FILE * readFile =  fopen(fileName.data(),"wb");
-                char recvbuf[1024];
-                memset(recvbuf,0,sizeof(recvbuf));
-                int FileSize = 0;
-                int error = recv(sockfd,recvbuf,1024,0);
-                if (error == 0)
-                {
-                    std::cout<<"Error in receving FileSize "<<std::endl;
-                    fclose(readFile);
-                    close(sockfd);
-                }
-                
-                FileSize = atoi(recvbuf);
-                std::cout<<"Number of Bytes :"<<FileSize<<std::endl;
-                
-                char buffer[1024];
-                int bytesReceived = 0;
-                while(FileSize > 0)
-                {
-                    bytesReceived = 0;
-                    memset(buffer,0,sizeof(buffer));
-                    if(FileSize>1024)
-                    {
-                        bytesReceived = recv(sockfd, buffer, 1024, 0 );
-                        fwrite(buffer, 1024, 1, readFile);
-                    }
-                    else
-                    {
-                        bytesReceived =recv( sockfd, buffer, FileSize, 0 );
-                        buffer[FileSize]='\0';
-                        fwrite(buffer, FileSize, 1, readFile);
-                        send(sockfd,"END",strlen("END"),0);
-                    }
-                    FileSize -= 1024;
-                }
-                fclose(readFile);
 
+                  Message::unixFile file(std::filesystem::path(""),false,0);
+                do
+                {
+                        unserialize_message<Message::unixFile>(file,sockfd);
+                        if (file.get_size() == 0)
+                        {
+                            break;
+                        }
+                    
+                        if (file.get_is_dir())
+                        {
+                            std::string path = "./build/files/"+file.get_path().generic_string();
+                            std::filesystem::create_directories(path);
+                            try{
+                                std::filesystem::permissions(path, std::filesystem::perms::all, std::filesystem::perm_options::add);
+                            }catch(...)
+                            {
+                                std::cout<<"An error occuried."<<std::endl;
+                                break;
+                            }
+                        }else
+                        {
+                            std::string fileName = "./build/files/"+file.get_path().generic_string();
+                            FILE * readFile =  fopen(fileName.data(),"wb");
+                            try{
+                            std::filesystem::permissions(fileName, std::filesystem::perms::all, std::filesystem::perm_options::add);
+                            }catch(...)
+                            {
+                                std::cout<<"An error occuried."<<std::endl;
+                                break;
+                            }
+                            int FileSize = file.get_size();
+                            int buffSize = 1024;
+                            if (FileSize < 1024)
+                            {
+                                buffSize=FileSize;
+                            }
+                            
+                            char recvbuf[buffSize];
+                            memset(recvbuf,0,buffSize);
+                            int error = recv(sockfd,recvbuf,buffSize,0);
+                            if (error == 0)
+                            {
+                                std::cout<<"Error in receving FileSize "<<std::endl;
+                                break;
+                            }
+                            else
+                            {
+                                char buffer[buffSize];
+                                int bytesReceived = 0;
+                                
+                                while(FileSize > 0)
+                                {
+                                    
+                                    bytesReceived = 0;
+                                    memset(buffer,0,buffSize);
+                                    if(FileSize>1024)
+                                    {
+                                        bytesReceived = recv(sockfd, buffer, 1024, 0 );
+                                        fwrite(buffer, 1024, 1, readFile);
+                                    }
+                                    else
+                                    {
+                                        bytesReceived =recv(sockfd, buffer, FileSize, 0 );
+                                        buffer[FileSize]='\0';
+                                        fwrite(buffer, FileSize, 1, readFile);
+                                        send(sockfd,"END",strlen("END"),0);
+                                    }
+                                    FileSize -= 1024;
+                                }
+                                
+                            }
+                            fclose(readFile);
+                        }
+                    }while(file.get_size() != 0);   
             }else if (std::strcmp(s.c_str(),"upload")==0)
             {
                 std::string pathDst;
                 std::cout<<"Enter the path of the file/repo you want to upload. e.g. path/myDirectory : ";
                 std::cin >> path;
-                std::cout<<"Enter the path owhere you want to add your file/repo. e.g. path/myDirectory : ";
+                check_path_exists(path);
+                std::cout<<"Enter the path where you want to add your file/repo. e.g. path/myDirectory : ";
                 checkPath(pathDst);
+
                 Message::cmdMsg msg(s,path, pathDst);
                 serialize_message<Message::cmdMsg>(msg,sockfd);
-                
-                std::string filepath = path;
-                std::ifstream myFile(filepath, std::ios::in|std::ios::binary|std::ios::ate);
-                int size = (int)myFile.tellg();
-                myFile.close();
-                FILE * readFile =  fopen(filepath.data(),"rb");
-                if (readFile == NULL)
-                {
-                    std::cout<<"Unable to open File";
-                    fclose(readFile);
-                    close(sockfd);
-                }
-                std::cout<<"\nNumber of Bytes :"<<size<<std::endl;
 
-                std::string FileSize = itoa(size).c_str();
-                int fileSizeLength = FileSize.length();
-                FileSize[fileSizeLength] = '\0';
-                send(sockfd,FileSize.c_str(),fileSizeLength,0);
-                double origin_size = size;
-                char buffer[1024];
-                int pourc;
-                int bytesReceived = 0;
-                int test = 0;
-                int last_pourc = 0;
-                while(size > 0)
+                std::filesystem::path p(path);
+
+                std::string upload_path(p.filename().generic_string());
+                bool isDir = std::filesystem::is_directory(p);
+                if (isDir)
                 {
-                    bytesReceived = 0;
-                    memset(buffer,0,sizeof(buffer));
-                        if(size>1024)
+                    Message::unixFile msg(std::filesystem::path(upload_path),isDir,upload_path.length()); //j'envoie le nom du dossier comme ça le serv le créé
+                    serialize_message<Message::unixFile>(msg,sockfd);
+                    for (const auto & entry : std::filesystem::recursive_directory_iterator(path))
+                    {
+                        isDir = std::filesystem::is_directory(entry.path());
+                        if (!isDir)
                         {
-                            fread(buffer, 1024, 1, readFile);
-                            bytesReceived = send( sockfd, buffer, 1024, 0 );
-                        }
-                        else
+                            Message::unixFile msg(std::filesystem::path(upload_path+"/"+entry.path().filename().generic_string()),isDir,entry.file_size());
+                            serialize_message<Message::unixFile>(msg,sockfd);
+                            send_msg(sockfd,entry.path().c_str(),entry.file_size());
+                        }else
                         {
-                            fread(buffer, size, 1, readFile);
-                            buffer[size]='\0';
-                            bytesReceived = send( sockfd, buffer, size, 0 );
+                            upload_path = upload_path+"/"+entry.path().filename().generic_string();
+                            Message::unixFile msg(std::filesystem::path(upload_path),isDir,upload_path.length());
+                            serialize_message<Message::unixFile>(msg,sockfd);
                         }
-                    test+=bytesReceived;
-                     size -= 1024;
-                     pourc = (test/origin_size)*100;
-                     
-                     if (pourc != last_pourc && pourc%10 == 0)
-                     {
-                        std::cout<<pourc<<std::endl;
-                        last_pourc = pourc;
-                     }                    
-                }
-                char recev[10];
-                memset(recev,0,sizeof(recev));
-                read(sockfd,recev,strlen("END"));
-                if(strcmp(recev,"END")== 0)
+                    }
+
+                    
+                }else
                 {
-                    std::cout<<"END received"<<std::endl;
+                    Message::unixFile msg(std::filesystem::path(upload_path),isDir,std::filesystem::file_size(p));
+                    serialize_message<Message::unixFile>(msg,sockfd);
+                    send_msg(sockfd,path,std::filesystem::file_size(p));
                 }
-                memset(recev,0,sizeof(recev));
-                fclose(readFile);
+                Message::unixFile fin("",isDir,0); 
+                serialize_message<Message::unixFile>(fin,sockfd);
 
             }else if (std::strcmp(s.c_str(),"ls")==0)
             {
