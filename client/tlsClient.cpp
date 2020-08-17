@@ -6,6 +6,7 @@
 #include <botan-2/botan/certstor.h>
 #include <botan-2/botan/certstor_system.h>
 #include "../Message.hpp"
+#include "../Utils.hpp"
 #include <sstream>
 #include <sys/socket.h> // For socket functions
 #include <netinet/in.h> // For sockaddr_in
@@ -139,95 +140,8 @@
 //         Botan::AutoSeeded_RNG rng;
 //         std::vector<std::shared_ptr<Botan::Certificate_Store>> m_stores;
 // };
-std::string itoa(int a)
-{
-    std::string ss="";   //create empty string
-    while(a)
-    {
-        int x=a%10;
-        a/=10;
-        char i='0';
-        i=i+x;
-        ss=i+ss;      //append new character at the front of the string!
-    }
-    return ss;
-}
 
-void send_msg(int sockfd, std::string path, ssize_t file_size)
-{
-    FILE * readFile =  fopen(path.data(),"rb");
-    if (readFile == NULL)
-    {
-        std::cout<<"Unable to open File";
-        fclose(readFile);
-        close(sockfd);
-    }
 
-    int buffSize = 1024;
-    if (file_size<1024)
-    {
-        buffSize = file_size;
-    }
-
-    std::cout<<"\nNumber of Bytes :"<<file_size<<std::endl;
-
-    std::string FileSize = itoa(buffSize).c_str();
-    FileSize[buffSize] = '\0';
-    send(sockfd,FileSize.c_str(),buffSize,0);
-    double origin_size = file_size;
-
-    
-    char buffer[buffSize];
-    int pourc;
-    int bytesReceived = 0;
-    int test = 0;
-    int last_pourc = 0;
-    while(file_size > 0)
-    {
-        bytesReceived = 0;
-        memset(buffer,0,sizeof(buffer));
-            if(file_size>1024)
-            {
-                fread(buffer, 1024, 1, readFile);
-                bytesReceived = send(sockfd, buffer, 1024, 0 );
-            }
-            else
-            {
-                fread(buffer, file_size, 1, readFile);
-                buffer[file_size]='\0';
-                bytesReceived = send( sockfd, buffer, file_size, 0 );
-            }
-            test+=bytesReceived;
-            file_size -= 1024;
-            pourc = (test/origin_size)*100;
-            
-            if (pourc != last_pourc && pourc%10 == 0)
-            {
-            std::cout<<pourc<<std::endl;
-            last_pourc = pourc;
-            }                    
-    }
-    char recev[10];
-    memset(recev,0,sizeof(recev));
-    read(sockfd,recev,strlen("END"));
-    if(strcmp(recev,"END")== 0)
-    {
-        std::cout<<"END received"<<std::endl;
-    }
-    memset(recev,0,sizeof(recev));
-    fclose(readFile);
-}
-
-void check_path_exists(std::string& path)
-{
-    std::filesystem::path p(path);
-    while (!std::filesystem::exists(p))
-    {
-        std::cout<<"This file doesn't exists. Enter a correct file path."<<std::endl;
-        std::cin >> path;
-        p = std::filesystem::path(path);
-    }
-}
 
 std::string ask_username()
 {
@@ -305,30 +219,6 @@ bool read_from_connection(int sockfd)
     return buffer[0] == '1';
 }
 
-template <typename T>
-void serialize_message(T& msg, int sockfd)
-{
-    std::stringstream ss;
-    ss << msg;    //serialize
-    write (sockfd, ss.str().c_str(), sizeof(msg)); 
-    ss.clear();
-}
-
-template <typename T>
-void unserialize_message(T& msg, int connection)
-{
-    char buffer[sizeof(msg)];
-    memset(buffer,0,sizeof(buffer));
-    std::string temp;
-    std::stringstream ss;
-
-    read(connection, buffer, sizeof(msg)); 
-    temp.assign(buffer); 
-    ss << temp;
-    ss >> msg;
-    ss.clear();
-}
-
 int main()
 {
     bool BASIC_CLIENT_SERVER = true;
@@ -359,7 +249,7 @@ int main()
                 if (std::strcmp(s.c_str(),"quit")==0)
                 {
                     Message::userMsg usr(s, username, pass);
-                    serialize_message<Message::userMsg>(usr,sockfd);
+                    Utils::serialize_message<Message::userMsg>(usr,sockfd);
                     close(sockfd);
                     exit(EXIT_SUCCESS);
                 }else if (std::strcmp(s.c_str(),"create")==0 || std::strcmp(s.c_str(),"connect")==0)
@@ -372,7 +262,7 @@ int main()
             username = ask_username();
             ask_password(pass);
             Message::userMsg usr(s, username,pass);
-            serialize_message<Message::userMsg>(usr,sockfd);
+            Utils::serialize_message<Message::userMsg>(usr,sockfd);
             cmd_well_finished = read_from_connection(sockfd);
 
             connected = (std::strcmp(usr.get_cmd_request().c_str(),"connect")==0);
@@ -380,7 +270,7 @@ int main()
             if (connected && cmd_well_finished)
             {
                 Message::cmdMsg msg("isAuth");
-                serialize_message<Message::cmdMsg>(msg,sockfd);
+                Utils::serialize_message<Message::cmdMsg>(msg,sockfd);
                 authentified = read_from_connection(sockfd);
             }
             
@@ -405,7 +295,7 @@ int main()
         
         do{
             Message::cmdMsg msg("isAdmin");
-            serialize_message<Message::cmdMsg>(msg,sockfd);
+            Utils::serialize_message<Message::cmdMsg>(msg,sockfd);
             bool is_admin = read_from_connection(sockfd);
 
             if (is_admin)
@@ -436,7 +326,7 @@ int main()
                 if (strcmp(s.c_str(),"quit")==0)
                 {
                     Message::cmdMsg usr(s);
-                    serialize_message<Message::cmdMsg>(usr,sockfd);
+                    Utils::serialize_message<Message::cmdMsg>(usr,sockfd);
                     close(sockfd);
                     exit(EXIT_SUCCESS);
                 }else
@@ -453,19 +343,19 @@ int main()
                 std::cout<<"Enter the directory name. e.g. path/myDirectory : ";
                 checkPath(path);
                 Message::cmdMsg msg(s,path);
-                serialize_message<Message::cmdMsg>(msg,sockfd);
+                Utils::serialize_message<Message::cmdMsg>(msg,sockfd);
             }else if (std::strcmp(s.c_str(),"dl")==0)
             {
                 std::cout<<"Enter the path of the file/repo you want to download. e.g. path/myDirectory : ";
                 checkPath(path);
                 Message::cmdMsg msgDl(s,path);
-                serialize_message<Message::cmdMsg>(msgDl,sockfd);
+                Utils::serialize_message<Message::cmdMsg>(msgDl,sockfd);
                 
 
                   Message::unixFile file(std::filesystem::path(""),false,0);
                 do
                 {
-                        unserialize_message<Message::unixFile>(file,sockfd);
+                        Utils::unserialize_message<Message::unixFile>(file,sockfd);
                         if (file.get_size() == 0)
                         {
                             break;
@@ -542,51 +432,18 @@ int main()
                 std::string pathDst;
                 std::cout<<"Enter the path of the file/repo you want to upload. e.g. path/myDirectory : ";
                 std::cin >> path;
-                check_path_exists(path);
+                Utils::check_path_exists(path);
                 std::cout<<"Enter the path where you want to add your file/repo. e.g. path/myDirectory : ";
                 checkPath(pathDst);
 
                 Message::cmdMsg msg(s,path, pathDst);
-                serialize_message<Message::cmdMsg>(msg,sockfd);
-
-                std::filesystem::path p(path);
-
-                std::string upload_path(p.filename().generic_string());
-                bool isDir = std::filesystem::is_directory(p);
-                if (isDir)
-                {
-                    Message::unixFile msg(std::filesystem::path(upload_path),isDir,upload_path.length()); //j'envoie le nom du dossier comme ça le serv le créé
-                    serialize_message<Message::unixFile>(msg,sockfd);
-                    for (const auto & entry : std::filesystem::recursive_directory_iterator(path))
-                    {
-                        isDir = std::filesystem::is_directory(entry.path());
-                        if (!isDir)
-                        {
-                            Message::unixFile msg(std::filesystem::path(upload_path+"/"+entry.path().filename().generic_string()),isDir,entry.file_size());
-                            serialize_message<Message::unixFile>(msg,sockfd);
-                            send_msg(sockfd,entry.path().c_str(),entry.file_size());
-                        }else
-                        {
-                            upload_path = upload_path+"/"+entry.path().filename().generic_string();
-                            Message::unixFile msg(std::filesystem::path(upload_path),isDir,upload_path.length());
-                            serialize_message<Message::unixFile>(msg,sockfd);
-                        }
-                    }
-
-                    
-                }else
-                {
-                    Message::unixFile msg(std::filesystem::path(upload_path),isDir,std::filesystem::file_size(p));
-                    serialize_message<Message::unixFile>(msg,sockfd);
-                    send_msg(sockfd,path,std::filesystem::file_size(p));
-                }
-                Message::unixFile fin("",isDir,0); 
-                serialize_message<Message::unixFile>(fin,sockfd);
-
+                Utils::serialize_message<Message::cmdMsg>(msg,sockfd);
+                Utils::recursive_send(path,sockfd);
+                
             }else if (std::strcmp(s.c_str(),"ls")==0)
             {
                 Message::cmdMsg msg(s);
-                serialize_message<Message::cmdMsg>(msg,sockfd);
+                Utils::serialize_message<Message::cmdMsg>(msg,sockfd);
 
                 std::cout<<"=============Files listing============="<<std::endl;;
                 read(sockfd, buffer, 1024);
@@ -601,7 +458,7 @@ int main()
                 {
                     std::cout<<"======================User list======================"<<std::endl;
                     Message::cmdMsg msgList("list_user");
-                    serialize_message<Message::cmdMsg>(msgList,sockfd);
+                    Utils::serialize_message<Message::cmdMsg>(msgList,sockfd);
 
                     read(sockfd, buffer, 1024);
                     std::cout<<buffer<<std::endl;
@@ -611,7 +468,7 @@ int main()
                     std::cout<<"Enter the concerned user. e.g. abs : ";
                     std::cin >> path;
                     Message::cmdMsg msg(s,path);
-                    serialize_message<Message::cmdMsg>(msg,sockfd);
+                    Utils::serialize_message<Message::cmdMsg>(msg,sockfd);
                 }
             } 
         }while(1);
